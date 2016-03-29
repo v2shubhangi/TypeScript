@@ -119,6 +119,14 @@ namespace ts {
         sourceFile.resolvedModules[moduleNameText] = resolvedModule;
     }
 
+    export function setResolvedTypeDirective(sourceFile: SourceFile, typeDirectiveName: string, resolvedTypeDirective: ResolvedTypeDirective): void {
+        if (!sourceFile.resolvedTypeDirectiveNames) {
+            sourceFile.resolvedTypeDirectiveNames = {};
+        }
+
+        sourceFile.resolvedTypeDirectiveNames[typeDirectiveName] = resolvedTypeDirective;
+    }
+
     /* @internal */
     export function moduleResolutionIsEqualTo(oldResolution: ResolvedModule, newResolution: ResolvedModule): boolean {
         return oldResolution.resolvedFileName === newResolution.resolvedFileName && oldResolution.isExternalLibraryImport === newResolution.isExternalLibraryImport;

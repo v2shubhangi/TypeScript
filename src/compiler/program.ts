@@ -46,7 +46,7 @@ namespace ts {
         const rootDirOrConfigFilePath = options.rootDir || (options.configFilePath && getDirectoryPath(options.configFilePath));
         return rootDirOrConfigFilePath
             ? getNormalizedAbsolutePath(rootDirOrConfigFilePath, currentDirectory)
-            : computeCommonSourceDirectoryOfFilenames(rootFileNames, currentDirectory, getCanonicalFileName)
+            : computeCommonSourceDirectoryOfFilenames(rootFileNames, currentDirectory, getCanonicalFileName);
     }
 
     function computeCommonSourceDirectoryOfFilenames(fileNames: string[], currentDirectory: string, getCanonicalFileName: (fileName: string) => string): string {
@@ -1013,7 +1013,7 @@ namespace ts {
                         return false;
                     }
 
-                    if (!arrayIsEqualTo(oldSourceFile.referencedLibraries, newSourceFile.referencedLibraries, fileReferenceIsEqualTo)) {
+                    if (!arrayIsEqualTo(oldSourceFile.typeDirectives, newSourceFile.typeDirectives, fileReferenceIsEqualTo)) {
                         // 'types' references has changed
                         return false;
                     }
@@ -1029,7 +1029,7 @@ namespace ts {
                         }
                     }
                     if (resolveTypeDirectiveNamesWorker) {
-                        const typesReferences = map(newSourceFile.referencedLibraries, x => x.fileName);
+                        const typesReferences = map(newSourceFile.typeDirectives, x => x.fileName);
                         const resolutions = resolveTypeDirectiveNamesWorker(typesReferences, newSourceFilePath);
                         // ensure that types resolutions are still correct
                         const resolutionsChanged = hasChangesInResolutions(typesReferences, resolutions, oldSourceFile.resolvedTypeDirectiveNames, typeDirectiveIsEqualTo);
@@ -1631,7 +1631,7 @@ namespace ts {
                 const basePath = getDirectoryPath(fileName);
                 if (!options.noResolve) {
                     processReferencedFiles(file, basePath);
-                    processReferencedLibraries(file, libraryRoot);
+                    processTypeDirectives(file, libraryRoot);
                 }
 
                 // always process imported modules to record module name resolutions
@@ -1655,34 +1655,36 @@ namespace ts {
             });
         }
 
-        function processReferencedLibraries(file: SourceFile, compilationRoot: string) {
-            const typeRefs = map(file.referencedLibraries, l => l.fileName);
-            const resolutions = resolveTypeDirectiveNamesWorker(typeRefs, file.fileName);
+        function processTypeDirectives(file: SourceFile, compilationRoot: string) {
+            const typeDirectives = map(file.typeDirectives, l => l.fileName);
+            const resolutions = resolveTypeDirectiveNamesWorker(typeDirectives, file.fileName);
 
-            for (let i = 0; i < typeRefs.length; i++) {
-                const ref = file.referencedLibraries[i];
-                const resolvedLibrary = resolutions[i];
+            for (let i = 0; i < typeDirectives.length; i++) {
+                const ref = file.typeDirectives[i];
+                const resolvedTypeDirective = resolutions[i];
+                // store resolved type directive on the file
+                setResolvedTypeDirective(file, ref.fileName, resolvedTypeDirective);
                 // If we already found this library as a primary reference, or failed to find it, nothing to do
                 const previousResolution = resolvedTypeDirectives[ref.fileName];
                 if (previousResolution && (previousResolution.primary || (previousResolution.resolvedFileName === undefined))) {
                     continue;
                 }
                 let saveResolution = true;
-                if (resolvedLibrary.resolvedFileName) {
-                    if (resolvedLibrary.primary) {
+                if (resolvedTypeDirective.resolvedFileName) {
+                    if (resolvedTypeDirective.primary) {
                         // resolved from the primary path
-                        processSourceFile(resolvedLibrary.resolvedFileName, /*isDefaultLib*/ false, /*isReference*/ true, file, ref.pos, ref.end);
+                        processSourceFile(resolvedTypeDirective.resolvedFileName, /*isDefaultLib*/ false, /*isReference*/ true, file, ref.pos, ref.end);
                     }
                     else {
                         // If we already resolved to this file, it must have been a secondary reference. Check file contents
                         // for sameness and possibly issue an error
                         if (previousResolution) {
-                            const otherFileText = host.readFile(resolvedLibrary.resolvedFileName);
+                            const otherFileText = host.readFile(resolvedTypeDirective.resolvedFileName);
                             if (otherFileText !== getSourceFile(previousResolution.resolvedFileName).text) {
                                 fileProcessingDiagnostics.add(createFileDiagnostic(file, ref.pos, ref.end - ref.pos,
                                     Diagnostics.Conflicting_library_definitions_for_0_found_at_1_and_2_Copy_the_correct_file_to_the_typings_folder_to_resolve_this_conflict,
                                     ref.fileName,
-                                    resolvedLibrary.resolvedFileName,
+                                    resolvedTypeDirective.resolvedFileName,
                                     previousResolution.resolvedFileName));
                             }
                             // don't overwrite previous resolution result
@@ -1690,7 +1692,7 @@ namespace ts {
                         }
                         else {
                             // First resolution of this library
-                            processSourceFile(resolvedLibrary.resolvedFileName, /*isDefaultLib*/ false, /*isReference*/ true, file, ref.pos, ref.end);
+                            processSourceFile(resolvedTypeDirective.resolvedFileName, /*isDefaultLib*/ false, /*isReference*/ true, file, ref.pos, ref.end);
                         }
                     }
                 }
@@ -1699,7 +1701,7 @@ namespace ts {
                 }
 
                 if (saveResolution) {
-                    resolvedTypeDirectives[ref.fileName] = resolvedLibrary;
+                    resolvedTypeDirectives[ref.fileName] = resolvedTypeDirective;
                 }
             }
         }

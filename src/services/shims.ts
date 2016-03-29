@@ -67,7 +67,7 @@ namespace ts {
         useCaseSensitiveFileNames?(): boolean;
 
         getModuleResolutionsForFile?(fileName: string): string;
-        getTypesResolutionsForFile?(fileName: string): string;
+        getTypeDirectiveResolutionsForFile?(fileName: string): string;
         directoryExists(directoryName: string): boolean;
     }
 
@@ -282,6 +282,7 @@ namespace ts {
         private tracingEnabled = false;
 
         public resolveModuleNames: (moduleName: string[], containingFile: string) => ResolvedModule[];
+        public resolveTypeDirectiveNames: (typeDirectiveNames: string[], containingFile: string) => ResolvedTypeDirective[];
         public directoryExists: (directoryName: string) => boolean;
 
         constructor(private shimHost: LanguageServiceShimHost) {
@@ -298,6 +299,12 @@ namespace ts {
             }
             if ("directoryExists" in this.shimHost) {
                 this.directoryExists = directoryName => this.shimHost.directoryExists(directoryName);
+            }
+            if ("getTypeDirectiveResolutionsForFile" in this.shimHost) {
+                this.resolveTypeDirectiveNames = (typeDirectiveNames: string[], containingFile: string) => {
+                    const typeDirectivesForFile = <Map<ResolvedTypeDirective>>JSON.parse(this.shimHost.getTypeDirectiveResolutionsForFile(containingFile));
+                    return map(typeDirectiveNames, name => lookUp(typeDirectivesForFile, name));
+                };
             }
         }
 

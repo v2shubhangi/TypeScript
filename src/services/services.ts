@@ -792,7 +792,7 @@ namespace ts {
         public amdDependencies: { name: string; path: string }[];
         public moduleName: string;
         public referencedFiles: FileReference[];
-        public referencedLibraries: FileReference[];
+        public typeDirectives: FileReference[];
 
         public syntacticDiagnostics: Diagnostic[];
         public referenceDiagnostics: Diagnostic[];
@@ -1041,7 +1041,7 @@ namespace ts {
          * host specific questions using 'getScriptSnapshot'.
          */
         resolveModuleNames?(moduleNames: string[], containingFile: string): ResolvedModule[];
-        resolveTypeDirectiveNames?(typeDirectiveNames: string[], containingFile: string): ResolvedModule[];
+        resolveTypeDirectiveNames?(typeDirectiveNames: string[], containingFile: string): ResolvedTypeDirective[];
         directoryExists?(directoryName: string): boolean;
     }
 
