@@ -1661,6 +1661,7 @@ namespace ts {
         /* @internal */ getTypeCount(): number;
 
         /* @internal */ getFileProcessingDiagnostics(): DiagnosticCollection;
+        /* @internal */ resolvedTypeDirectives: Map<ResolvedTypeDirective>;
         // For testing purposes only.
         /* @internal */ structureIsReused?: boolean;
     }

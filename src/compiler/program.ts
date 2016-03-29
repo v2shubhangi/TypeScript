@@ -42,6 +42,58 @@ namespace ts {
         return normalizePath(referencedFileName);
     }
 
+    export function computeCompilationRoot(rootFileNames: string[], currentDirectory: string, options: CompilerOptions, getCanonicalFileName: (fileName: string) => string): string {
+        const rootDirOrConfigFilePath = options.rootDir || (options.configFilePath && getDirectoryPath(options.configFilePath));
+        return rootDirOrConfigFilePath
+            ? getNormalizedAbsolutePath(rootDirOrConfigFilePath, currentDirectory)
+            : computeCommonSourceDirectoryOfFilenames(rootFileNames, currentDirectory, getCanonicalFileName)
+    }
+
+    function computeCommonSourceDirectoryOfFilenames(fileNames: string[], currentDirectory: string, getCanonicalFileName: (fileName: string) => string): string {
+        let commonPathComponents: string[];
+        const failed = forEach(fileNames, sourceFile => {
+            // Each file contributes into common source file path
+            const sourcePathComponents = getNormalizedPathComponents(sourceFile, currentDirectory);
+            sourcePathComponents.pop(); // The base file name is not part of the common directory path
+
+            if (!commonPathComponents) {
+                // first file
+                commonPathComponents = sourcePathComponents;
+                return;
+            }
+
+            for (let i = 0, n = Math.min(commonPathComponents.length, sourcePathComponents.length); i < n; i++) {
+                if (getCanonicalFileName(commonPathComponents[i]) !== getCanonicalFileName(sourcePathComponents[i])) {
+                    if (i === 0) {
+                        // Failed to find any common path component
+                        return true;
+                    }
+
+                    // New common path found that is 0 -> i-1
+                    commonPathComponents.length = i;
+                    break;
+                }
+            }
+
+            // If the sourcePathComponents was shorter than the commonPathComponents, truncate to the sourcePathComponents
+            if (sourcePathComponents.length < commonPathComponents.length) {
+                commonPathComponents.length = sourcePathComponents.length;
+            }
+        });
+
+        // A common path can not be found when paths span multiple drives on windows, for example
+        if (failed) {
+            return "";
+        }
+
+        if (!commonPathComponents) { // Can happen when all input files are .d.ts files
+            return currentDirectory;
+        }
+
+        return getNormalizedPathFromPathComponents(commonPathComponents);
+    }
+
+
     function trace(host: ModuleResolutionHost, message: DiagnosticMessage, ...args: any[]): void;
     function trace(host: ModuleResolutionHost, message: DiagnosticMessage): void {
         host.trace(formatMessage.apply(undefined, arguments));
@@ -774,30 +826,25 @@ namespace ts {
     export function createProgram(rootNames: string[], options: CompilerOptions, host?: CompilerHost, oldProgram?: Program): Program {
         let program: Program;
         let files: SourceFile[] = [];
-        let fileProcessingDiagnostics = createDiagnosticCollection();
-        const currentDirectory = host.getCurrentDirectory();
-        // TODO: expose on the program, pass from the old program
-        // TODO: set resolution results on the source file
-        const resolvedTypeDirectives: Map<ResolvedTypeDirective> = {};
-        let libraryRoot =
-            (options.rootDir && ts.toPath(options.rootDir, currentDirectory, host.getCanonicalFileName)) ||
-            (options.configFilePath && getDirectoryPath(getNormalizedAbsolutePath(options.configFilePath, currentDirectory)));
-        if (libraryRoot === undefined) {
-            libraryRoot = computeCommonSourceDirectoryOfFilenames(rootNames);
-        }
-        const programDiagnostics = createDiagnosticCollection();
-
         let commonSourceDirectory: string;
         let diagnosticsProducingTypeChecker: TypeChecker;
         let noDiagnosticsTypeChecker: TypeChecker;
         let classifiableNames: Map<string>;
 
+        // TODO: set resolution results on the source file
+        let resolvedTypeDirectives: Map<ResolvedTypeDirective> = {};
+        let fileProcessingDiagnostics = createDiagnosticCollection();
         let skipDefaultLib = options.noLib;
+        const programDiagnostics = createDiagnosticCollection();
+        const currentDirectory = host.getCurrentDirectory();
         const supportedExtensions = getSupportedExtensions(options);
 
         const start = new Date().getTime();
 
         host = host || createCompilerHost(options);
+
+        const libraryRoot = computeCompilationRoot(rootNames, currentDirectory, options, getCanonicalFileName);
+
         // Map storing if there is emit blocking diagnostics for given input
         const hasEmitBlockingDiagnostics = createFileMap<boolean>(getCanonicalFileName);
 
@@ -872,7 +919,8 @@ namespace ts {
             getIdentifierCount: () => getDiagnosticsProducingTypeChecker().getIdentifierCount(),
             getSymbolCount: () => getDiagnosticsProducingTypeChecker().getSymbolCount(),
             getTypeCount: () => getDiagnosticsProducingTypeChecker().getTypeCount(),
-            getFileProcessingDiagnostics: () => fileProcessingDiagnostics
+            getFileProcessingDiagnostics: () => fileProcessingDiagnostics,
+            resolvedTypeDirectives
         };
 
         verifyCompilerOptions();
@@ -1014,6 +1062,7 @@ namespace ts {
             for (const modifiedFile of modifiedSourceFiles) {
                 fileProcessingDiagnostics.reattachFileDiagnostics(modifiedFile);
             }
+            resolvedTypeDirectives = oldProgram.resolvedTypeDirectives;
             oldProgram.structureIsReused = true;
 
             return true;
@@ -1701,50 +1750,6 @@ namespace ts {
             return;
         }
 
-        function computeCommonSourceDirectoryOfFilenames(fileNames: string[]): string {
-            let commonPathComponents: string[];
-            const failed = forEach(fileNames, sourceFile => {
-                // Each file contributes into common source file path
-                const sourcePathComponents = getNormalizedPathComponents(sourceFile, currentDirectory);
-                sourcePathComponents.pop(); // The base file name is not part of the common directory path
-
-                if (!commonPathComponents) {
-                    // first file
-                    commonPathComponents = sourcePathComponents;
-                    return;
-                }
-
-                for (let i = 0, n = Math.min(commonPathComponents.length, sourcePathComponents.length); i < n; i++) {
-                    if (getCanonicalFileName(commonPathComponents[i]) !== getCanonicalFileName(sourcePathComponents[i])) {
-                        if (i === 0) {
-                            // Failed to find any common path component
-                            return true;
-                        }
-
-                        // New common path found that is 0 -> i-1
-                        commonPathComponents.length = i;
-                        break;
-                    }
-                }
-
-                // If the sourcePathComponents was shorter than the commonPathComponents, truncate to the sourcePathComponents
-                if (sourcePathComponents.length < commonPathComponents.length) {
-                    commonPathComponents.length = sourcePathComponents.length;
-                }
-            });
-
-            // A common path can not be found when paths span multiple drives on windows, for example
-            if (failed) {
-                return "";
-            }
-
-            if (!commonPathComponents) { // Can happen when all input files are .d.ts files
-                return currentDirectory;
-            }
-
-            return getNormalizedPathFromPathComponents(commonPathComponents);
-        }
-
         function computeCommonSourceDirectory(sourceFiles: SourceFile[]): string {
             const fileNames: string[] = [];
             for (const file of sourceFiles) {
@@ -1752,7 +1757,7 @@ namespace ts {
                     fileNames.push(file.fileName);
                 }
             }
-            return computeCommonSourceDirectoryOfFilenames(fileNames);
+            return computeCommonSourceDirectoryOfFilenames(fileNames, currentDirectory, getCanonicalFileName);
         }
 
         function checkSourceFilesBelongToPath(sourceFiles: SourceFile[], rootDirectory: string): boolean {
