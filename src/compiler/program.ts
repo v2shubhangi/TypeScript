@@ -98,6 +98,55 @@ namespace ts {
         skipTsx: boolean;
     }
 
+    function findLibraryDefinition(searchPath: string, state: ModuleResolutionState) {
+        let typingFilename = "index.d.ts";
+        const packageJsonPath = combinePaths(searchPath, "package.json");
+        if (state.host.fileExists(packageJsonPath)) {
+            let package: { typings?: string } = {};
+            try {
+                package = JSON.parse(state.host.readFile(packageJsonPath));
+            }
+            catch (e) { 
+            }
+            if (package.typings) {
+                typingFilename = package.typings;
+            }
+        }
+
+        const combinedPath = normalizePath(combinePaths(searchPath, typingFilename));
+        return state.host.fileExists(combinedPath) ? combinedPath : undefined;
+    }
+
+    export function resolveTypeReferences(name: string, containingFile: string, compilationRoot: string, options: CompilerOptions, host: ModuleResolutionHost): ResolvedLibrary {
+        const moduleResolutionState: ModuleResolutionState = {
+            compilerOptions: options,
+            host: host,
+            skipTsx: true,
+            traceEnabled: false
+        };
+        
+        const primarySearchPaths = map(getEffectiveLibraryPrimarySearchPaths(options), path => combinePaths(compilationRoot, path));
+        // Check primary library paths
+        for (const primaryPath of primarySearchPaths) {
+            const searchPath = combinePaths(primaryPath, name);
+            const resolvedFile = findLibraryDefinition(searchPath, moduleResolutionState);
+            if (resolvedFile) {
+                return {  primary: true, resolvedFileName: resolvedFile };
+            }
+        }
+
+        // check secondary locations
+        const failedLookupLocations: string[] = [];
+        const resolvedFile = loadModuleFromNodeModules(name, containingFile, failedLookupLocations, moduleResolutionState);
+        return resolvedFile
+            ? { primary: false, resolvedFileName: resolvedFile }
+            : { primary: true, resolvedFileName: undefined };
+    }
+
+    function getEffectiveLibraryPrimarySearchPaths(options: CompilerOptions): string[] {
+        return options.librarySearchPaths || (options.configFilePath ? [options.configFilePath].concat(defaultLibrarySearchPaths) : defaultLibrarySearchPaths);
+    }
+
     export function resolveModuleName(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations {
         const traceEnabled = isTraceEnabled(compilerOptions, host);
         if (traceEnabled) {
@@ -740,6 +789,29 @@ namespace ts {
                 }
                 return resolvedModuleNames;
             });
+
+        const resolveTypeReferencesWorker = host.resolveTypeReferences
+            ? ((moduleNames: string[], containingFile: string) => host.resolveTypeReferences(moduleNames, containingFile))
+            : ((moduleNames: string[], containingFile: string) => {
+                const resolvedModuleNames: ResolvedLibrary[] = [];
+                // resolveLibraryName does not store any results between calls.
+                // lookup is a local cache to avoid resolving the same module name several times
+                const lookup: Map<ResolvedLibrary> = {};
+                for (const moduleName of moduleNames) {
+                    let resolvedName: ResolvedLibrary;
+                    if (hasProperty(lookup, moduleName)) {
+                        resolvedName = lookup[moduleName];
+                    }
+                    else {
+                        resolvedName = resolveTypeReferences(moduleName, containingFile, libraryRoot, options, host);
+                        lookup[moduleName] = resolvedName;
+                    }
+                    resolvedModuleNames.push(resolvedName);
+                }
+                return resolvedModuleNames;
+            });
+
+
 
         const filesByName = createFileMap<SourceFile>();
         // stores 'filename -> file association' ignoring case
@@ -1521,96 +1593,55 @@ namespace ts {
             });
         }
 
-        function findLibraryDefinition(searchPath: string) {
-            let typingFilename = "index.d.ts";
-            const packageJsonPath = combinePaths(searchPath, "package.json");
-            if (host.fileExists(packageJsonPath)) {
-                let package: { typings?: string } = {};
-                try {
-                    package = JSON.parse(host.readFile(packageJsonPath));
-                }
-                catch (e) { }
-
-                if (package.typings) {
-                    typingFilename = package.typings;
-                }
-            }
-
-            const combinedPath = normalizePath(combinePaths(searchPath, typingFilename));
-            return host.fileExists(combinedPath) ? combinedPath : undefined;
-        }
-
         function processReferencedLibraries(file: SourceFile, compilationRoot: string) {
-            const primarySearchPaths = map(getEffectiveLibraryPrimarySearchPaths(), path => combinePaths(compilationRoot, path));
+            const typeRefs = map(file.referencedLibraries, l => l.fileName);
+            const resolutions = resolveTypeReferencesWorker(typeRefs, file.fileName);
 
-            const failedSearchPaths: string[] = [];
-            const moduleResolutionState: ModuleResolutionState = {
-                compilerOptions: options,
-                host: host,
-                skipTsx: true,
-                traceEnabled: false
-            };
-
-            for (const ref of file.referencedLibraries) {
+            for (let i = 0; i < typeRefs.length; ++i) {
+                const ref = file.referencedLibraries[i];
+                const resolvedLibrary = resolutions[i];
                 // If we already found this library as a primary reference, or failed to find it, nothing to do
                 const previousResolution = resolvedLibraries[ref.fileName];
                 if (previousResolution && (previousResolution.primary || (previousResolution.resolvedFileName === undefined))) {
                     continue;
                 }
-
-                let foundIt = false;
-
-                // Check primary library paths
-                for (const primaryPath of primarySearchPaths) {
-                    const searchPath = combinePaths(primaryPath, ref.fileName);
-                    const resolvedFile = findLibraryDefinition(searchPath);
-                    if (resolvedFile) {
-                        resolvedLibraries[ref.fileName] = { primary: true, resolvedFileName: resolvedFile };
-                        processSourceFile(resolvedFile, /*isDefaultLib*/ false, /*isReference*/ true, file, ref.pos, ref.end);
-                        foundIt = true;
-                        break;
+                let saveResolution = true;
+                if (resolvedLibrary.resolvedFileName) {
+                    if (resolvedLibrary.primary) {
+                        // resolved from the primary path
+                        processSourceFile(resolvedLibrary.resolvedFileName, /*isDefaultLib*/ false, /*isReference*/ true, file, ref.pos, ref.end);
                     }
-                }
-
-                // Check secondary library paths
-                if (!foundIt) {
-                    const secondaryResult = loadModuleFromNodeModules(ref.fileName, file.fileName, failedSearchPaths, moduleResolutionState);
-                    if (secondaryResult) {
-                        foundIt = true;
+                    else {
                         // If we already resolved to this file, it must have been a secondary reference. Check file contents
                         // for sameness and possibly issue an error
                         if (previousResolution) {
-                            const otherFileText = host.readFile(secondaryResult);
+                            const otherFileText = host.readFile(resolvedLibrary.resolvedFileName);
                             if (otherFileText !== getSourceFile(previousResolution.resolvedFileName).text) {
                                 fileProcessingDiagnostics.add(createFileDiagnostic(file, ref.pos, ref.end - ref.pos,
                                     Diagnostics.Conflicting_library_definitions_for_0_found_at_1_and_2_Copy_the_correct_file_to_the_typings_folder_to_resolve_this_conflict,
                                     ref.fileName,
-                                    secondaryResult,
+                                    resolvedLibrary.resolvedFileName,
                                     previousResolution.resolvedFileName));
                             }
+                            // don't overwrite previous resolution result
+                            saveResolution = false;
                         }
                         else {
                             // First resolution of this library
-                            resolvedLibraries[ref.fileName] = { primary: false, resolvedFileName: secondaryResult };
-                            processSourceFile(secondaryResult, /*isDefaultLib*/ false, /*isReference*/ true, file, ref.pos, ref.end);
+                            processSourceFile(resolvedLibrary.resolvedFileName, /*isDefaultLib*/ false, /*isReference*/ true, file, ref.pos, ref.end);
                         }
                     }
                 }
-
-                if (!foundIt) {
+                else {
                     fileProcessingDiagnostics.add(createFileDiagnostic(file, ref.pos, ref.end - ref.pos, Diagnostics.Cannot_find_name_0, ref.fileName));
-                    // Create an entry as a primary lookup result so we don't keep doing this
-                    resolvedLibraries[ref.fileName] = { primary: true, resolvedFileName: undefined };
+                }
+
+                if (saveResolution) {
+                    resolvedLibraries[ref.fileName] = resolvedLibrary;
                 }
             }
         }
 
-        function getEffectiveLibraryPrimarySearchPaths(): Path[] {
-            return <Path[]>(options.librarySearchPaths ||
-                (options.configFilePath ?
-                    [options.configFilePath].concat(defaultLibrarySearchPaths) :
-                    defaultLibrarySearchPaths));
-        }
 
         function getCanonicalFileName(fileName: string): string {
             return host.getCanonicalFileName(fileName);

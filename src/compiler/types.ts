@@ -2778,6 +2778,10 @@ namespace ts {
          * 'throw new Error("NotImplemented")'
          */
         resolveModuleNames?(moduleNames: string[], containingFile: string): ResolvedModule[];
+        /**
+         * This method is a companion for 'resolveModuleNames' and is used to resolve 'types' references to actual files 
+         */
+        resolveTypeReferences?(typeReferences: string[], containingFile: string): ResolvedLibrary[];
     }
 
     export interface TextSpan {
