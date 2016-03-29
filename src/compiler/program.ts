@@ -106,7 +106,7 @@ namespace ts {
             try {
                 package = JSON.parse(state.host.readFile(packageJsonPath));
             }
-            catch (e) { 
+            catch (e) {
             }
             if (package.typings) {
                 typingFilename = package.typings;
@@ -124,7 +124,7 @@ namespace ts {
             skipTsx: true,
             traceEnabled: false
         };
-        
+
         const primarySearchPaths = map(getEffectiveLibraryPrimarySearchPaths(options), path => combinePaths(compilationRoot, path));
         // Check primary library paths
         for (const primaryPath of primarySearchPaths) {
@@ -978,7 +978,6 @@ namespace ts {
                         if (resolutionsChanged) {
                             return false;
                         }
-                        
                     }
                     // pass the cache of module/types resolutions from the old source file
                     newSourceFile.resolvedModules = oldSourceFile.resolvedModules;
@@ -1601,7 +1600,7 @@ namespace ts {
             const typeRefs = map(file.referencedLibraries, l => l.fileName);
             const resolutions = resolveTypeReferencesWorker(typeRefs, file.fileName);
 
-            for (let i = 0; i < typeRefs.length; ++i) {
+            for (let i = 0; i < typeRefs.length; i++) {
                 const ref = file.referencedLibraries[i];
                 const resolvedLibrary = resolutions[i];
                 // If we already found this library as a primary reference, or failed to find it, nothing to do
