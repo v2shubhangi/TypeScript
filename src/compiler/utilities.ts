@@ -125,7 +125,7 @@ namespace ts {
     }
 
     /* @internal */
-    export function typesReferenceIsEqualTo(oldResolution: ResolvedLibrary, newResolution: ResolvedLibrary): boolean {
+    export function typeDirectiveIsEqualTo(oldResolution: ResolvedTypeDirective, newResolution: ResolvedTypeDirective): boolean {
         return oldResolution.resolvedFileName === newResolution.resolvedFileName && oldResolution.primary === newResolution.primary;
     }
 

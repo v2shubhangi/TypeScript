@@ -1584,7 +1584,7 @@ namespace ts {
         // It is used to resolve module names in the checker.
         // Content of this field should never be used directly - use getResolvedModuleFileName/setResolvedModuleFileName functions instead
         /* @internal */ resolvedModules: Map<ResolvedModule>;
-        /* @internal */ resolvedReferencedLibraries: Map<ResolvedLibrary>;
+        /* @internal */ resolvedTypeDirectiveNames: Map<ResolvedTypeDirective>;
         /* @internal */ imports: LiteralExpression[];
         /* @internal */ moduleAugmentations: LiteralExpression[];
     }
@@ -2749,15 +2749,20 @@ namespace ts {
         isExternalLibraryImport?: boolean;
     }
 
-    export interface ResolvedLibrary {
-        // True if the library was found in a primary lookup location         
+    export interface ResolvedModuleWithFailedLookupLocations {
+        resolvedModule: ResolvedModule;
+        failedLookupLocations: string[];
+    }
+
+    export interface ResolvedTypeDirective {
+        // True if the type declaration file was found in a primary lookup location
         primary: boolean;
         // The location of the .d.ts file we located, or undefined if resolution failed
         resolvedFileName?: string;
     }
 
-    export interface ResolvedModuleWithFailedLookupLocations {
-        resolvedModule: ResolvedModule;
+    export interface ResolvedTypeDirectiveWithFailedLookupLocations {
+        resolvedTypeDirective: ResolvedTypeDirective;
         failedLookupLocations: string[];
     }
 
@@ -2780,9 +2785,9 @@ namespace ts {
          */
         resolveModuleNames?(moduleNames: string[], containingFile: string): ResolvedModule[];
         /**
-         * This method is a companion for 'resolveModuleNames' and is used to resolve 'types' references to actual files 
+         * This method is a companion for 'resolveModuleNames' and is used to resolve 'types' references to actual type declaration files 
          */
-        resolveTypeReferences?(typeReferences: string[], containingFile: string): ResolvedLibrary[];
+        resolveTypeDirectiveNames?(typeDirectiveNames: string[], containingFile: string): ResolvedTypeDirective[];
     }
 
     export interface TextSpan {

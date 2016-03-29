@@ -67,6 +67,7 @@ namespace ts {
         useCaseSensitiveFileNames?(): boolean;
 
         getModuleResolutionsForFile?(fileName: string): string;
+        getTypesResolutionsForFile?(fileName: string): string;
         directoryExists(directoryName: string): boolean;
     }
 

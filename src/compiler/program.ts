@@ -98,7 +98,7 @@ namespace ts {
         skipTsx: boolean;
     }
 
-    function findLibraryDefinition(searchPath: string, state: ModuleResolutionState) {
+    function tryLoadTypeDeclarationFile(searchPath: string, failedLookupLocations: string[], state: ModuleResolutionState) {
         let typingFilename = "index.d.ts";
         const packageJsonPath = combinePaths(searchPath, "package.json");
         if (state.host.fileExists(packageJsonPath)) {
@@ -112,12 +112,25 @@ namespace ts {
                 typingFilename = package.typings;
             }
         }
+        else {
+            failedLookupLocations.push(packageJsonPath);
+        }
 
         const combinedPath = normalizePath(combinePaths(searchPath, typingFilename));
-        return state.host.fileExists(combinedPath) ? combinedPath : undefined;
+        if (state.host.fileExists(combinedPath)) {
+            return combinedPath;
+        }
+        else {
+            failedLookupLocations.push(combinedPath);
+            return undefined;
+        }
     }
 
-    export function resolveTypeReferences(name: string, containingFile: string, compilationRoot: string, options: CompilerOptions, host: ModuleResolutionHost): ResolvedLibrary {
+    function getEffectiveLibraryPrimarySearchPaths(options: CompilerOptions): string[] {
+        return options.librarySearchPaths || (options.configFilePath ? [options.configFilePath].concat(defaultLibrarySearchPaths) : defaultLibrarySearchPaths);
+    }
+
+    export function resolveTypeDirective(typeDirectiveName: string, containingFile: string, compilationRoot: string, options: CompilerOptions, host: ModuleResolutionHost): ResolvedTypeDirectiveWithFailedLookupLocations {
         const moduleResolutionState: ModuleResolutionState = {
             compilerOptions: options,
             host: host,
@@ -125,26 +138,23 @@ namespace ts {
             traceEnabled: false
         };
 
+        const failedLookupLocations: string[] = [];
         const primarySearchPaths = map(getEffectiveLibraryPrimarySearchPaths(options), path => combinePaths(compilationRoot, path));
         // Check primary library paths
         for (const primaryPath of primarySearchPaths) {
-            const searchPath = combinePaths(primaryPath, name);
-            const resolvedFile = findLibraryDefinition(searchPath, moduleResolutionState);
+            const searchPath = combinePaths(primaryPath, typeDirectiveName);
+            const resolvedFile = tryLoadTypeDeclarationFile(searchPath, failedLookupLocations, moduleResolutionState);
             if (resolvedFile) {
-                return {  primary: true, resolvedFileName: resolvedFile };
+                return { resolvedTypeDirective: {  primary: true, resolvedFileName: resolvedFile }, failedLookupLocations };
             }
         }
 
         // check secondary locations
-        const failedLookupLocations: string[] = [];
-        const resolvedFile = loadModuleFromNodeModules(name, containingFile, failedLookupLocations, moduleResolutionState);
-        return resolvedFile
-            ? { primary: false, resolvedFileName: resolvedFile }
-            : { primary: true, resolvedFileName: undefined };
-    }
-
-    function getEffectiveLibraryPrimarySearchPaths(options: CompilerOptions): string[] {
-        return options.librarySearchPaths || (options.configFilePath ? [options.configFilePath].concat(defaultLibrarySearchPaths) : defaultLibrarySearchPaths);
+        const resolvedFile = loadModuleFromNodeModules(typeDirectiveName, containingFile, failedLookupLocations, moduleResolutionState);
+        return {
+            resolvedTypeDirective: resolvedFile ? { primary: false, resolvedFileName: resolvedFile } : { primary: true, resolvedFileName: undefined },
+            failedLookupLocations
+        }
     }
 
     export function resolveModuleName(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations {
@@ -768,7 +778,7 @@ namespace ts {
         const currentDirectory = host.getCurrentDirectory();
         // TODO: expose on the program, pass from the old program
         // TODO: set resolution results on the source file
-        const resolvedLibraries: Map<ResolvedLibrary> = {};
+        const resolvedTypeDirectives: Map<ResolvedTypeDirective> = {};
         let libraryRoot =
             (options.rootDir && ts.toPath(options.rootDir, currentDirectory, host.getCanonicalFileName)) ||
             (options.configFilePath && getDirectoryPath(getNormalizedAbsolutePath(options.configFilePath, currentDirectory)));
@@ -800,13 +810,13 @@ namespace ts {
             resolveModuleNamesWorker = (moduleNames, containingFile) => loadWithLocalCache(moduleNames, containingFile, loader);
         }
 
-        let resolveTypeReferencesWorker: (typesReferences: string[], containingFile: string) => ResolvedLibrary[];
-        if (host.resolveTypeReferences) {
-            resolveTypeReferencesWorker = (typesReferences, containingFile) => host.resolveTypeReferences(typesReferences, containingFile);
+        let resolveTypeDirectiveNamesWorker: (typeDirectiveNames: string[], containingFile: string) => ResolvedTypeDirective[];
+        if (host.resolveTypeDirectiveNames) {
+            resolveTypeDirectiveNamesWorker = (typeDirectiveNames, containingFile) => host.resolveTypeDirectiveNames(typeDirectiveNames, containingFile);
         }
         else {
-            const loader = (typesRef: string, containingFile: string) => resolveTypeReferences(typesRef, containingFile, libraryRoot, options, host);
-            resolveTypeReferencesWorker = (typesReferences, containingFile) => loadWithLocalCache(typesReferences, containingFile, loader);
+            const loader = (typesRef: string, containingFile: string) => resolveTypeDirective(typesRef, containingFile, libraryRoot, options, host).resolvedTypeDirective;
+            resolveTypeDirectiveNamesWorker = (typeDirectiveNames, containingFile) => loadWithLocalCache(typeDirectiveNames, containingFile, loader);
         }
 
         const filesByName = createFileMap<SourceFile>();
@@ -970,18 +980,18 @@ namespace ts {
                             return false;
                         }
                     }
-                    if (resolveTypeReferencesWorker) {
+                    if (resolveTypeDirectiveNamesWorker) {
                         const typesReferences = map(newSourceFile.referencedLibraries, x => x.fileName);
-                        const resolutions = resolveTypeReferencesWorker(typesReferences, newSourceFilePath);
+                        const resolutions = resolveTypeDirectiveNamesWorker(typesReferences, newSourceFilePath);
                         // ensure that types resolutions are still correct
-                        const resolutionsChanged = hasChangesInResolutions(typesReferences, resolutions, oldSourceFile.resolvedReferencedLibraries, typesReferenceIsEqualTo);
+                        const resolutionsChanged = hasChangesInResolutions(typesReferences, resolutions, oldSourceFile.resolvedTypeDirectiveNames, typeDirectiveIsEqualTo);
                         if (resolutionsChanged) {
                             return false;
                         }
                     }
                     // pass the cache of module/types resolutions from the old source file
                     newSourceFile.resolvedModules = oldSourceFile.resolvedModules;
-                    newSourceFile.resolvedReferencedLibraries = oldSourceFile.resolvedReferencedLibraries;
+                    newSourceFile.resolvedTypeDirectiveNames = oldSourceFile.resolvedTypeDirectiveNames;
                     modifiedSourceFiles.push(newSourceFile);
                 }
                 else {
@@ -1598,13 +1608,13 @@ namespace ts {
 
         function processReferencedLibraries(file: SourceFile, compilationRoot: string) {
             const typeRefs = map(file.referencedLibraries, l => l.fileName);
-            const resolutions = resolveTypeReferencesWorker(typeRefs, file.fileName);
+            const resolutions = resolveTypeDirectiveNamesWorker(typeRefs, file.fileName);
 
             for (let i = 0; i < typeRefs.length; i++) {
                 const ref = file.referencedLibraries[i];
                 const resolvedLibrary = resolutions[i];
                 // If we already found this library as a primary reference, or failed to find it, nothing to do
-                const previousResolution = resolvedLibraries[ref.fileName];
+                const previousResolution = resolvedTypeDirectives[ref.fileName];
                 if (previousResolution && (previousResolution.primary || (previousResolution.resolvedFileName === undefined))) {
                     continue;
                 }
@@ -1640,11 +1650,10 @@ namespace ts {
                 }
 
                 if (saveResolution) {
-                    resolvedLibraries[ref.fileName] = resolvedLibrary;
+                    resolvedTypeDirectives[ref.fileName] = resolvedLibrary;
                 }
             }
         }
-
 
         function getCanonicalFileName(fileName: string): string {
             return host.getCanonicalFileName(fileName);

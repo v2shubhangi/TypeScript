@@ -814,7 +814,7 @@ namespace ts {
         public identifiers: Map<string>;
         public nameTable: Map<number>;
         public resolvedModules: Map<ResolvedModule>;
-        public resolvedReferencedLibraries: Map<ResolvedLibrary>;
+        public resolvedTypeDirectiveNames: Map<ResolvedTypeDirective>;
         public imports: LiteralExpression[];
         public moduleAugmentations: LiteralExpression[];
         private namedDeclarations: Map<Declaration[]>;
@@ -1041,6 +1041,7 @@ namespace ts {
          * host specific questions using 'getScriptSnapshot'.
          */
         resolveModuleNames?(moduleNames: string[], containingFile: string): ResolvedModule[];
+        resolveTypeDirectiveNames?(typeDirectiveNames: string[], containingFile: string): ResolvedModule[];
         directoryExists?(directoryName: string): boolean;
     }
 
