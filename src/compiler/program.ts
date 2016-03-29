@@ -741,11 +741,33 @@ namespace ts {
         }
     }
 
+    function loadWithLocalCache<T>(names: string[], containingFile: string, loader: (name: string, containingFile: string) => T): T[] {
+        if (names.length === 0) {
+            return [];
+        }
+        const resolutions: T[] = [];
+        const cache: Map<T> = {};
+        for (const name of names) {
+            let result: T;
+            if (hasProperty(cache, name)) {
+                result = cache[name];
+            }
+            else {
+                result = loader(name, containingFile);
+                cache[name] = result;
+            }
+            resolutions.push(result);
+        }
+        return resolutions;
+    }
+
     export function createProgram(rootNames: string[], options: CompilerOptions, host?: CompilerHost, oldProgram?: Program): Program {
         let program: Program;
         let files: SourceFile[] = [];
         let fileProcessingDiagnostics = createDiagnosticCollection();
         const currentDirectory = host.getCurrentDirectory();
+        // TODO: expose on the program, pass from the old program
+        // TODO: set resolution results on the source file
         const resolvedLibraries: Map<ResolvedLibrary> = {};
         let libraryRoot =
             (options.rootDir && ts.toPath(options.rootDir, currentDirectory, host.getCanonicalFileName)) ||
@@ -769,49 +791,23 @@ namespace ts {
         // Map storing if there is emit blocking diagnostics for given input
         const hasEmitBlockingDiagnostics = createFileMap<boolean>(getCanonicalFileName);
 
-        const resolveModuleNamesWorker = host.resolveModuleNames
-            ? ((moduleNames: string[], containingFile: string) => host.resolveModuleNames(moduleNames, containingFile))
-            : ((moduleNames: string[], containingFile: string) => {
-                const resolvedModuleNames: ResolvedModule[] = [];
-                // resolveModuleName does not store any results between calls.
-                // lookup is a local cache to avoid resolving the same module name several times
-                const lookup: Map<ResolvedModule> = {};
-                for (const moduleName of moduleNames) {
-                    let resolvedName: ResolvedModule;
-                    if (hasProperty(lookup, moduleName)) {
-                        resolvedName = lookup[moduleName];
-                    }
-                    else {
-                        resolvedName = resolveModuleName(moduleName, containingFile, options, host).resolvedModule;
-                        lookup[moduleName] = resolvedName;
-                    }
-                    resolvedModuleNames.push(resolvedName);
-                }
-                return resolvedModuleNames;
-            });
+        let resolveModuleNamesWorker: (moduleNames: string[], containingFile: string) => ResolvedModule[];
+        if (host.resolveModuleNames) {
+            resolveModuleNamesWorker = (moduleNames, containingFile) => host.resolveModuleNames(moduleNames, containingFile);
+        }
+        else {
+            const loader = (moduleName: string, containingFile: string) => resolveModuleName(moduleName, containingFile, options, host).resolvedModule;
+            resolveModuleNamesWorker = (moduleNames, containingFile) => loadWithLocalCache(moduleNames, containingFile, loader);
+        }
 
-        const resolveTypeReferencesWorker = host.resolveTypeReferences
-            ? ((moduleNames: string[], containingFile: string) => host.resolveTypeReferences(moduleNames, containingFile))
-            : ((moduleNames: string[], containingFile: string) => {
-                const resolvedModuleNames: ResolvedLibrary[] = [];
-                // resolveLibraryName does not store any results between calls.
-                // lookup is a local cache to avoid resolving the same module name several times
-                const lookup: Map<ResolvedLibrary> = {};
-                for (const moduleName of moduleNames) {
-                    let resolvedName: ResolvedLibrary;
-                    if (hasProperty(lookup, moduleName)) {
-                        resolvedName = lookup[moduleName];
-                    }
-                    else {
-                        resolvedName = resolveTypeReferences(moduleName, containingFile, libraryRoot, options, host);
-                        lookup[moduleName] = resolvedName;
-                    }
-                    resolvedModuleNames.push(resolvedName);
-                }
-                return resolvedModuleNames;
-            });
-
-
+        let resolveTypeReferencesWorker: (typesReferences: string[], containingFile: string) => ResolvedLibrary[];
+        if (host.resolveTypeReferences) {
+            resolveTypeReferencesWorker = (typesReferences, containingFile) => host.resolveTypeReferences(typesReferences, containingFile);
+        }
+        else {
+            const loader = (typesRef: string, containingFile: string) => resolveTypeReferences(typesRef, containingFile, libraryRoot, options, host);
+            resolveTypeReferencesWorker = (typesReferences, containingFile) => loadWithLocalCache(typesReferences, containingFile, loader);
+        }
 
         const filesByName = createFileMap<SourceFile>();
         // stores 'filename -> file association' ignoring case
@@ -959,26 +955,34 @@ namespace ts {
                         return false;
                     }
 
+                    if (!arrayIsEqualTo(oldSourceFile.referencedLibraries, newSourceFile.referencedLibraries, fileReferenceIsEqualTo)) {
+                        // 'types' references has changed
+                        return false;
+                    }
+
+                    const newSourceFilePath = getNormalizedAbsolutePath(newSourceFile.fileName, currentDirectory);
                     if (resolveModuleNamesWorker) {
                         const moduleNames = map(concatenate(newSourceFile.imports, newSourceFile.moduleAugmentations), getTextOfLiteral);
-                        const resolutions = resolveModuleNamesWorker(moduleNames, getNormalizedAbsolutePath(newSourceFile.fileName, currentDirectory));
+                        const resolutions = resolveModuleNamesWorker(moduleNames, newSourceFilePath);
                         // ensure that module resolution results are still correct
-                        for (let i = 0; i < moduleNames.length; i++) {
-                            const newResolution = resolutions[i];
-                            const oldResolution = getResolvedModule(oldSourceFile, moduleNames[i]);
-                            const resolutionChanged = oldResolution
-                                ? !newResolution ||
-                                oldResolution.resolvedFileName !== newResolution.resolvedFileName ||
-                                !!oldResolution.isExternalLibraryImport !== !!newResolution.isExternalLibraryImport
-                                : newResolution;
-
-                            if (resolutionChanged) {
-                                return false;
-                            }
+                        const resolutionsChanged = hasChangesInResolutions(moduleNames, resolutions, oldSourceFile.resolvedModules, moduleResolutionIsEqualTo);
+                        if (resolutionsChanged) {
+                            return false;
                         }
                     }
-                    // pass the cache of module resolutions from the old source file
+                    if (resolveTypeReferencesWorker) {
+                        const typesReferences = map(newSourceFile.referencedLibraries, x => x.fileName);
+                        const resolutions = resolveTypeReferencesWorker(typesReferences, newSourceFilePath);
+                        // ensure that types resolutions are still correct
+                        const resolutionsChanged = hasChangesInResolutions(typesReferences, resolutions, oldSourceFile.resolvedReferencedLibraries, typesReferenceIsEqualTo);
+                        if (resolutionsChanged) {
+                            return false;
+                        }
+                        
+                    }
+                    // pass the cache of module/types resolutions from the old source file
                     newSourceFile.resolvedModules = oldSourceFile.resolvedModules;
+                    newSourceFile.resolvedReferencedLibraries = oldSourceFile.resolvedReferencedLibraries;
                     modifiedSourceFiles.push(newSourceFile);
                 }
                 else {

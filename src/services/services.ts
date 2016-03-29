@@ -814,6 +814,7 @@ namespace ts {
         public identifiers: Map<string>;
         public nameTable: Map<number>;
         public resolvedModules: Map<ResolvedModule>;
+        public resolvedReferencedLibraries: Map<ResolvedLibrary>;
         public imports: LiteralExpression[];
         public moduleAugmentations: LiteralExpression[];
         private namedDeclarations: Map<Declaration[]>;
