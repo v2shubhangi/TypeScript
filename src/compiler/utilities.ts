@@ -6,7 +6,7 @@ namespace ts {
         fileReference?: FileReference;
         diagnosticMessage?: DiagnosticMessage;
         isNoDefaultLib?: boolean;
-        isLibraryReference?: boolean;
+        isTypeReferenceDirective?: boolean;
     }
 
     export interface SynthesizedNode extends Node {
@@ -536,7 +536,7 @@ namespace ts {
     }
 
     export let fullTripleSlashReferencePathRegEx = /^(\/\/\/\s*<reference\s+path\s*=\s*)('|")(.+?)\2.*?\/>/;
-    export let fullTripleSlashReferenceLibraryRegEx = /^(\/\/\/\s*<reference\s+library\s*=\s*)('|")(.+?)\2.*?\/>/;
+    export let fullTripleSlashReferenceTypeReferenceDirectiveRegEx = /^(\/\/\/\s*<reference\s+types\s*=\s*)('|")(.+?)\2.*?\/>/;
     export let fullTripleSlashAMDReferencePathRegEx = /^(\/\/\/\s*<amd-dependency\s+path\s*=\s*)('|")(.+?)\2.*?\/>/;
 
     export function isTypeNode(node: Node): boolean {
@@ -1578,7 +1578,7 @@ namespace ts {
             }
             else {
                 const refMatchResult = fullTripleSlashReferencePathRegEx.exec(comment);
-                const refLibResult = !refMatchResult && fullTripleSlashReferenceLibraryRegEx.exec(comment);
+                const refLibResult = !refMatchResult && fullTripleSlashReferenceTypeReferenceDirectiveRegEx.exec(comment);
                 if (refMatchResult || refLibResult) {
                     const start = commentRange.pos;
                     const end = commentRange.end;
@@ -1589,7 +1589,7 @@ namespace ts {
                             fileName: (refMatchResult || refLibResult)[3]
                         },
                         isNoDefaultLib: false,
-                        isLibraryReference: !!refLibResult
+                        isTypeReferenceDirective: !!refLibResult
                     };
                 }
 

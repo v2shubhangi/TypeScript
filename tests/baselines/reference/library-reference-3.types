@@ -1,5 +1,5 @@
 === tests/cases/conformance/references/src/consumer.ts ===
-/// <reference library="jquery" />
+/// <reference types="jquery" />
 $.foo();
 >$.foo() : void
 >$.foo : () => void

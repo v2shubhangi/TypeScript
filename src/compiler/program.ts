@@ -13,9 +13,9 @@ namespace ts {
     const emptyArray: any[] = [];
 
     const defaultLibrarySearchPaths = <Path[]>[
-        "typings/",
+        "types/",
         "node_modules/",
-        "node_modules/@typings/",
+        "node_modules/@types/",
     ];
 
     export const version = "1.9.0";
@@ -154,14 +154,14 @@ namespace ts {
         let typingFilename = "index.d.ts";
         const packageJsonPath = combinePaths(searchPath, "package.json");
         if (state.host.fileExists(packageJsonPath)) {
-            let package: { typings?: string } = {};
+            let package: { types?: string } = {};
             try {
                 package = JSON.parse(state.host.readFile(packageJsonPath));
             }
             catch (e) {
             }
-            if (package.typings) {
-                typingFilename = package.typings;
+            if (package.types) {
+                typingFilename = package.types;
             }
         }
         else {

@@ -1,5 +1,5 @@
 === tests/cases/conformance/references/src/consumer.ts ===
-/// <reference library="jquery" />
+/// <reference types="jquery" />
 $.foo();
 >$.foo : Symbol(foo, Decl(index.d.ts, 3, 16))
 >$ : Symbol($, Decl(index.d.ts, 3, 11))

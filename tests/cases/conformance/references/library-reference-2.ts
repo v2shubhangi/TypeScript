@@ -2,15 +2,15 @@
 
 // package.json in a primary reference can refer to another file
 
-// @filename: typings/jquery/package.json
+// @filename: types/jquery/package.json
 {
-	"typings": "jquery.d.ts"
+    "types": "jquery.d.ts"
 }
 
-// @filename: typings/jquery/jquery.d.ts
+// @filename: types/jquery/jquery.d.ts
 declare var $: { foo(): void };
 
 
 // @filename: consumer.ts
-/// <reference library="jquery" />
+/// <reference types="jquery" />
 $.foo();

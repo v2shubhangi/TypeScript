@@ -6,5 +6,5 @@
 declare var $: { foo(): void };
 
 // @filename: src/consumer.ts
-/// <reference library="jquery" />
+/// <reference types="jquery" />
 $.foo();
