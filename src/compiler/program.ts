@@ -154,7 +154,7 @@ namespace ts {
         return {
             resolvedTypeDirective: resolvedFile ? { primary: false, resolvedFileName: resolvedFile } : { primary: true, resolvedFileName: undefined },
             failedLookupLocations
-        }
+        };
     }
 
     export function resolveModuleName(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations {
