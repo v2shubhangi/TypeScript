@@ -65,6 +65,10 @@ namespace Utils {
         return Buffer ? (new Buffer(s)).toString("utf8") : s;
     }
 
+    export function byteLength(s: string, encoding?: string): number {
+        return Buffer ? Buffer.byteLength(s, encoding) : s.length;
+    }
+
     export function evalFile(fileContents: string, fileName: string, nodeContext?: any) {
         const environment = getExecutionEnvironment();
         switch (environment) {

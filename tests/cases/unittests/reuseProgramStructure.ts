@@ -118,13 +118,13 @@ module ts {
                 return "";
             },
             getCanonicalFileName(fileName): string {
-                return sys.useCaseSensitiveFileNames ? fileName : fileName.toLowerCase();
+                return sys && sys.useCaseSensitiveFileNames ? fileName : fileName.toLowerCase();
             },
             useCaseSensitiveFileNames(): boolean {
-                return sys.useCaseSensitiveFileNames;
+                return sys && sys.useCaseSensitiveFileNames;
             },
             getNewLine(): string {
-                return sys.newLine;
+                return sys ? sys.newLine : newLine;
             },
             fileExists: fileName => hasProperty(files, fileName),
             readFile: fileName => {
@@ -187,7 +187,7 @@ module ts {
 
             for (let id in expectedContent) {
                 if (hasProperty(expectedContent, id)) {
-                    assert.isTrue(hasProperty(file.resolvedModules, id), `expected ${id} to be found in cache::${caption}`);
+
                     if (expectedContent[id]) {
                         const expected = expectedContent[id];
                         const actual = cache[id];
@@ -220,7 +220,7 @@ module ts {
 `, "",`var x = 1`) },
             { name: "b.ts", text: SourceText.New(`/// <reference path='c.ts'/>`, "", `var y = 2`) },
             { name: "c.ts", text: SourceText.New("", "", `var z = 1;`) },
-            { name: "types/typerefs.d.ts", text: SourceText.New("", "", `declare let z: number;`) },
+            { name: "types/typerefs/index.d.ts", text: SourceText.New("", "", `declare let z: number;`) },
         ]
 
         it("successful if change does not affect imports", () => {
@@ -332,16 +332,15 @@ module ts {
         });
 
         it("resolved type directives cache follows type directives", () => {
-            assert.isTrue(false, "TODO");
             let files = [
-                { name: "a.ts", text: SourceText.New("", "import {_} from 'b'", "var x = 1") },
-                { name: "b.ts", text: SourceText.New("", "", "var y = 2") },
+                { name: "a.ts", text: SourceText.New("/// <reference types='typedefs'/>", "", "var x = $") },
+                { name: "types/typedefs/index.d.ts", text: SourceText.New("", "", "declare var $: number") },
             ];
             var options: CompilerOptions = { target };
 
             var program_1 = newProgram(files, ["a.ts"], options);
-            checkResolvedModulesCache(program_1, "a.ts", { "b": { resolvedFileName: "b.ts" } });
-            checkResolvedModulesCache(program_1, "b.ts", undefined);
+            checkResolvedTypeDirectivesCache(program_1, "a.ts", { "typedefs": { resolvedFileName: "types/typedefs/index.d.ts", primary: true } });
+            checkResolvedTypeDirectivesCache(program_1, "types/typedefs/index.d.ts", undefined);
 
             var program_2 = updateProgram(program_1, ["a.ts"], options, files => {
                 files[0].text = files[0].text.updateProgram("var x = 2");
@@ -349,24 +348,25 @@ module ts {
             assert.isTrue(program_1.structureIsReused);
 
             // content of resolution cache should not change
-            checkResolvedModulesCache(program_1, "a.ts", { "b": { resolvedFileName: "b.ts" } });
-            checkResolvedModulesCache(program_1, "b.ts", undefined);
+            checkResolvedTypeDirectivesCache(program_1, "a.ts", { "typedefs": { resolvedFileName: "types/typedefs/index.d.ts", primary: true } });
+            checkResolvedTypeDirectivesCache(program_1, "types/typedefs/index.d.ts", undefined);
 
-            // imports has changed - program is not reused
+            // type reference directives has changed - program is not reused
             var program_3 = updateProgram(program_2, ["a.ts"], options, files => {
-                files[0].text = files[0].text.updateImportsAndExports("");
+                files[0].text = files[0].text.updateReferences("");
             });
+
             assert.isTrue(!program_2.structureIsReused);
-            checkResolvedModulesCache(program_3, "a.ts", undefined);
+            checkResolvedTypeDirectivesCache(program_3, "a.ts", undefined);
 
             var program_4 = updateProgram(program_3, ["a.ts"], options, files => {
-                let newImports = `import x from 'b'
-                import y from 'c'
+                let newReferences = `/// <reference types="typedefs"/>
+                /// <reference types="typedefs2"/>
                 `;
-                files[0].text = files[0].text.updateImportsAndExports(newImports);
+                files[0].text = files[0].text.updateReferences(newReferences);
             });
             assert.isTrue(!program_3.structureIsReused);
-            checkResolvedModulesCache(program_4, "a.ts", { "b": { resolvedFileName: "b.ts" }, "c": undefined });
+            checkResolvedTypeDirectivesCache(program_1, "a.ts", { "typedefs": { resolvedFileName: "types/typedefs/index.d.ts", primary: true } });
         });
     })
 }
