@@ -1029,10 +1029,44 @@ import b = require("./moduleB.ts");
             }
         });
         it("Primary resolution overrides secondary resolutions", () => {
-            assert(false, "TODO");
+            {
+                const f1 = { name: "/root/src/a/b/c/app.ts" };
+                const f2 = { name: "/root/src/types/lib/index.d.ts" };
+                const f3 = { name: "/root/src/a/b/node_modules/lib.d.ts" }
+                test(/*libraryRoot*/"/root/src", /* typeDirective */"lib", /*primary*/ true, f1, f2, f3);
+            }
         })
         it("Reused program keeps errors", () => {
-            assert(false, "TODO");
+            const f1 = { name: "/root/src/a/b/c/d/e/app.ts", content: `/// <reference types="lib"/>` };
+            const f2 = { name: "/root/src/a/b/c/d/node_modules/lib/index.d.ts", content: `declare var x: number;` };
+            const f3 = { name: "/root/src/a/b/c/d/f/g/app.ts", content: `/// <reference types="lib"/>` };
+            const f4 = { name: "/root/src/a/b/c/d/f/node_modules/lib/index.d.ts", content: `declare var x: number;` };
+            const files = [f1, f2, f3, f4];
+            
+            const names = map(files, f => f.name);
+            const sourceFiles = arrayToMap(map(files, f => createSourceFile(f.name, f.content, ScriptTarget.ES6)), f => f.fileName);
+            const compilerHost: CompilerHost = {
+                fileExists : fileName => hasProperty(sourceFiles, fileName),
+                getSourceFile: fileName => sourceFiles[fileName],
+                getDefaultLibFileName: () => "lib.d.ts",
+                writeFile(file, text) {
+                    throw new Error("NYI");
+                },
+                getCurrentDirectory: () => "/",
+                getCanonicalFileName: f => f.toLowerCase(),
+                getNewLine: () => "\r\n",
+                useCaseSensitiveFileNames: () => false,
+                readFile: fileName => hasProperty(sourceFiles, fileName) ? sourceFiles[fileName].text : undefined
+            };
+            const program1 = createProgram(names, {}, compilerHost);
+            const diagnostics1 = program1.getFileProcessingDiagnostics().getDiagnostics();
+            assert.equal(diagnostics1.length, 1, "expected one diagnostics");
+
+            const program2 = createProgram(names, {}, compilerHost, program1);
+            assert.isTrue(program1.structureIsReused);
+            const diagnostics2 = program1.getFileProcessingDiagnostics().getDiagnostics();
+            assert.equal(diagnostics2.length, 1, "expected one diagnostics ");
+            assert.equal(diagnostics1[0].messageText, diagnostics2[0].messageText, "expected one diagnostics ");
         })
     });
 }
