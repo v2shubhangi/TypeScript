@@ -100,7 +100,7 @@ namespace ts {
     }
 
     function isTraceEnabled(compilerOptions: CompilerOptions, host: ModuleResolutionHost): boolean {
-        return compilerOptions.traceModuleResolution && host.trace !== undefined;
+        return compilerOptions.traceResolution && host.trace !== undefined;
     }
 
     function startsWith(str: string, prefix: string): boolean {
@@ -150,29 +150,87 @@ namespace ts {
         skipTsx: boolean;
     }
 
+    function tryReadTypesSection(packageJsonPath: string, baseDirectory: string, state: ModuleResolutionState): string {
+        let jsonContent: { typings?: string, types?: string };
+        try {
+            const jsonText = state.host.readFile(packageJsonPath);
+            jsonContent = jsonText ? <{ typings?: string, types?: string }>JSON.parse(jsonText) : {};
+        }
+        catch (e) {
+            // gracefully handle if readFile fails or returns not JSON
+            jsonContent = {};
+        }
+
+        let typesFile: string;
+        let fieldName: string;
+        if (jsonContent.typings) {
+            if (typeof jsonContent.typings === "string") {
+                fieldName = "typings";
+                typesFile = jsonContent.typings;
+            }
+            else {
+                if (state.traceEnabled) {
+                    trace(state.host, Diagnostics.Expected_type_of_0_field_in_package_json_to_be_string_got_1, "typings", typeof jsonContent.typings);
+                }
+            }
+        }
+        if (!typesFile && jsonContent.types) {
+            if (typeof jsonContent.types === "string") {
+                fieldName = "types";
+                typesFile = jsonContent.types;
+            }
+            else {
+                if (state.traceEnabled) {
+                    trace(state.host, Diagnostics.Expected_type_of_0_field_in_package_json_to_be_string_got_1, "types", typeof jsonContent.types);
+                }
+            }
+        }
+        if (typesFile) {
+            const typesFilePath = normalizePath(combinePaths(baseDirectory, typesFile));
+            if (state.traceEnabled) {
+                trace(state.host, Diagnostics.package_json_has_0_field_1_that_references_2, fieldName, typesFile, typesFilePath);
+            }
+            return typesFilePath;
+        }
+        return undefined;
+    }
+
     function tryLoadTypeDeclarationFile(searchPath: string, failedLookupLocations: string[], state: ModuleResolutionState) {
-        let typingFilename = "index.d.ts";
+        let typesFile: string;
         const packageJsonPath = combinePaths(searchPath, "package.json");
         if (state.host.fileExists(packageJsonPath)) {
-            let package: { types?: string } = {};
-            try {
-                package = JSON.parse(state.host.readFile(packageJsonPath));
+            if (state.traceEnabled) {
+                trace(state.host, Diagnostics.Found_package_json_at_0, packageJsonPath);
             }
-            catch (e) {
-            }
-            if (package.types) {
-                typingFilename = package.types;
+            typesFile = tryReadTypesSection(packageJsonPath, searchPath, state);
+            if (!typesFile) {
+                if (state.traceEnabled) {
+                    trace(state.host, Diagnostics.package_json_does_not_have_types_field);
+                }
             }
         }
         else {
+            if (state.traceEnabled) {
+                trace(state.host, Diagnostics.File_0_does_not_exist, packageJsonPath);
+            }
             failedLookupLocations.push(packageJsonPath);
         }
 
-        const combinedPath = normalizePath(combinePaths(searchPath, typingFilename));
+        if (!typesFile) {
+            typesFile = "index.d.ts";
+        }
+
+        const combinedPath = normalizePath(combinePaths(searchPath, typesFile));
         if (state.host.fileExists(combinedPath)) {
+            if (state.traceEnabled) {
+                trace(state.host, Diagnostics.File_0_exist_use_it_as_a_name_resolution_result, combinedPath);
+            }
             return combinedPath;
         }
         else {
+            if (state.traceEnabled) {
+                trace(state.host, Diagnostics.File_0_does_not_exist, combinedPath);
+            }
             failedLookupLocations.push(combinedPath);
             return undefined;
         }
@@ -183,26 +241,47 @@ namespace ts {
     }
 
     export function resolveTypeDirective(typeDirectiveName: string, containingFile: string, compilationRoot: string, options: CompilerOptions, host: ModuleResolutionHost): ResolvedTypeDirectiveWithFailedLookupLocations {
+        const traceEnabled = isTraceEnabled(options, host);
         const moduleResolutionState: ModuleResolutionState = {
             compilerOptions: options,
             host: host,
             skipTsx: true,
-            traceEnabled: false
+            traceEnabled
         };
 
+        if (traceEnabled) {
+            trace(host, Diagnostics.Resolving_type_reference_directive_0_from_1_with_compilation_root_dir_2, typeDirectiveName, containingFile, compilationRoot);
+        }
         const failedLookupLocations: string[] = [];
         const primarySearchPaths = map(getEffectiveLibraryPrimarySearchPaths(options), path => combinePaths(compilationRoot, path));
         // Check primary library paths
         for (const primaryPath of primarySearchPaths) {
+            if (traceEnabled) {
+                trace(host, Diagnostics.Resolving_with_primary_search_path_0, primaryPath);
+            }
             const searchPath = combinePaths(primaryPath, typeDirectiveName);
             const resolvedFile = tryLoadTypeDeclarationFile(searchPath, failedLookupLocations, moduleResolutionState);
             if (resolvedFile) {
+                if (traceEnabled) {
+                    trace(host, Diagnostics.Type_reference_directive_0_was_successfully_resolved_to_1_primary_Colon_2, typeDirectiveName, resolvedFile, true);
+                }
                 return { resolvedTypeDirective: {  primary: true, resolvedFileName: resolvedFile }, failedLookupLocations };
             }
         }
 
+        if (traceEnabled) {
+            trace(host, Diagnostics.Resolving_from_node_modules_folder);
+        }
         // check secondary locations
         const resolvedFile = loadModuleFromNodeModules(typeDirectiveName, getDirectoryPath(containingFile), failedLookupLocations, moduleResolutionState);
+        if (traceEnabled) {
+            if (resolvedFile) {
+                trace(host, Diagnostics.Type_reference_directive_0_was_successfully_resolved_to_1_primary_Colon_2, typeDirectiveName, resolvedFile, false);
+            }
+            else {
+                trace(host, Diagnostics.Type_reference_directive_0_was_not_resolved, typeDirectiveName);
+            }
+        }
         return {
             resolvedTypeDirective: resolvedFile ? { primary: false, resolvedFileName: resolvedFile } : { primary: true, resolvedFileName: undefined },
             failedLookupLocations
@@ -549,7 +628,7 @@ namespace ts {
             const fileName = fileExtensionIs(candidate, ext) ? candidate : candidate + ext;
             if (!onlyRecordFailures && state.host.fileExists(fileName)) {
                 if (state.traceEnabled) {
-                    trace(state.host, Diagnostics.File_0_exist_use_it_as_a_module_resolution_result, fileName);
+                    trace(state.host, Diagnostics.File_0_exist_use_it_as_a_name_resolution_result, fileName);
                 }
                 return fileName;
             }
@@ -570,36 +649,16 @@ namespace ts {
             if (state.traceEnabled) {
                 trace(state.host, Diagnostics.Found_package_json_at_0, packageJsonPath);
             }
-
-            let jsonContent: { typings?: string, types?: string };
-
-            try {
-                const jsonText = state.host.readFile(packageJsonPath);
-                jsonContent = jsonText ? <{ typings?: string, types?: string }>JSON.parse(jsonText) : { typings: undefined, types: undefined };
-            }
-            catch (e) {
-                // gracefully handle if readFile fails or returns not JSON
-                jsonContent = { typings: undefined, types: undefined };
-            }
-
-            if (jsonContent.typings) {
-                if (typeof jsonContent.typings === "string") {
-                    const typingsFile = normalizePath(combinePaths(candidate, jsonContent.typings));
-                    if (state.traceEnabled) {
-                        trace(state.host, Diagnostics.package_json_has_typings_field_0_that_references_1, jsonContent.typings, typingsFile);
-                    }
-                    const result = loadModuleFromFile(typingsFile, extensions, failedLookupLocation, !directoryProbablyExists(getDirectoryPath(typingsFile), state.host), state);
-                    if (result) {
-                        return result;
-                    }
-                }
-                else if (state.traceEnabled) {
-                    trace(state.host, Diagnostics.Expected_type_of_typings_field_in_package_json_to_be_string_got_0, typeof jsonContent.typings);
+            const typesFile = tryReadTypesSection(packageJsonPath, candidate, state);
+            if (typesFile) {
+                const result = loadModuleFromFile(typesFile, extensions, failedLookupLocation, !directoryProbablyExists(getDirectoryPath(typesFile), state.host), state);
+                if (result) {
+                    return result;
                 }
             }
             else {
                 if (state.traceEnabled) {
-                    trace(state.host, Diagnostics.package_json_does_not_have_typings_field);
+                    trace(state.host, Diagnostics.package_json_does_not_have_types_field);
                 }
             }
         }
@@ -634,7 +693,7 @@ namespace ts {
         while (true) {
             const baseName = getBaseFileName(directory);
             if (baseName !== "node_modules") {
-                const result = 
+                const result =
                     loadModuleFromNodeModulesFolder(moduleName, directory, failedLookupLocations, state) ||
                     loadModuleFromNodeModulesFolder(combinePaths("@types", moduleName), directory, failedLookupLocations, state);
                 if (result) {
@@ -846,7 +905,6 @@ namespace ts {
         let noDiagnosticsTypeChecker: TypeChecker;
         let classifiableNames: Map<string>;
 
-        // TODO: set resolution results on the source file
         let resolvedTypeDirectives: Map<ResolvedTypeDirective> = {};
         let fileProcessingDiagnostics = createDiagnosticCollection();
         let skipDefaultLib = options.noLib;

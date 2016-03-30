@@ -1,11 +1,11 @@
-=== tests/cases/conformance/references/consumer.ts ===
+=== /consumer.ts ===
 /// <reference types="jquery" />
 $.foo();
 >$.foo : Symbol(foo, Decl(index.d.ts, 3, 16))
 >$ : Symbol($, Decl(index.d.ts, 3, 11))
 >foo : Symbol(foo, Decl(index.d.ts, 3, 16))
 
-=== tests/cases/conformance/references/types/jquery/index.d.ts ===
+=== /types/jquery/index.d.ts ===
 
 // We can find typings in the ./types folder
 

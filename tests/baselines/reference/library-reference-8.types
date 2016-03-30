@@ -1,4 +1,4 @@
-=== tests/cases/conformance/references/foo.ts ===
+=== /foo.ts ===
 /// <reference types="alpha" />
 /// <reference types="beta" />
 var x: string = alpha.a + beta.b;
@@ -12,7 +12,7 @@ var x: string = alpha.a + beta.b;
 >b : string
 
 
-=== tests/cases/conformance/references/types/alpha/index.d.ts ===
+=== /types/alpha/index.d.ts ===
 
 // Don't crash in circular library reference situations
 
@@ -21,7 +21,7 @@ declare var alpha: { a: string };
 >alpha : { a: string; }
 >a : string
 
-=== tests/cases/conformance/references/types/beta/index.d.ts ===
+=== /types/beta/index.d.ts ===
 /// <reference types="alpha" />
 declare var beta: { b: string };
 >beta : { b: string; }

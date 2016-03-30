@@ -1028,7 +1028,7 @@ namespace Harness {
                 options.newLine);
 
             let traceResults: string[];
-            if (options.traceModuleResolution) {
+            if (options.traceResolution) {
                 traceResults = [];
                 compilerHost.trace = text => traceResults.push(text);
             }

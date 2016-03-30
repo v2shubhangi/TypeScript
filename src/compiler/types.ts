@@ -2457,7 +2457,7 @@ namespace ts {
         baseUrl?: string;
         paths?: PathSubstitutions;
         rootDirs?: RootPaths;
-        traceModuleResolution?: boolean;
+        traceResolution?: boolean;
         allowSyntheticDefaultImports?: boolean;
         allowJs?: boolean;
         noImplicitUseStrict?: boolean;
