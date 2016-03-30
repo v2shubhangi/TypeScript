@@ -1060,13 +1060,13 @@ import b = require("./moduleB.ts");
             };
             const program1 = createProgram(names, {}, compilerHost);
             const diagnostics1 = program1.getFileProcessingDiagnostics().getDiagnostics();
-            assert.equal(diagnostics1.length, 1, "expected one diagnostics");
+            assert.equal(diagnostics1.length, 1, "expected one diagnostic");
 
             const program2 = createProgram(names, {}, compilerHost, program1);
             assert.isTrue(program1.structureIsReused);
             const diagnostics2 = program1.getFileProcessingDiagnostics().getDiagnostics();
-            assert.equal(diagnostics2.length, 1, "expected one diagnostics ");
-            assert.equal(diagnostics1[0].messageText, diagnostics2[0].messageText, "expected one diagnostics ");
+            assert.equal(diagnostics2.length, 1, "expected one diagnostic");
+            assert.equal(diagnostics1[0].messageText, diagnostics2[0].messageText, "expected one diagnostic");
         })
     });
 }
