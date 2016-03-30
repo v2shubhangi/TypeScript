@@ -880,7 +880,9 @@ namespace ts {
                 (oldOptions.target !== options.target) ||
                 (oldOptions.noLib !== options.noLib) ||
                 (oldOptions.jsx !== options.jsx) ||
-                (oldOptions.allowJs !== options.allowJs)) {
+                (oldOptions.allowJs !== options.allowJs) ||
+                (oldOptions.rootDir !== options.rootDir) ||
+                (oldOptions.configFilePath !== options.configFilePath)) {
                 oldProgram = undefined;
             }
         }
