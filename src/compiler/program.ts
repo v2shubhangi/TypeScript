@@ -202,7 +202,7 @@ namespace ts {
         }
 
         // check secondary locations
-        const resolvedFile = loadModuleFromNodeModules(typeDirectiveName, containingFile, failedLookupLocations, moduleResolutionState);
+        const resolvedFile = loadModuleFromNodeModules(typeDirectiveName, getDirectoryPath(containingFile), failedLookupLocations, moduleResolutionState);
         return {
             resolvedTypeDirective: resolvedFile ? { primary: false, resolvedFileName: resolvedFile } : { primary: true, resolvedFileName: undefined },
             failedLookupLocations
@@ -534,6 +534,12 @@ namespace ts {
      * in cases when we know upfront that all load attempts will fail (because containing folder does not exists) however we still need to record all failed lookup locations.
      */
     function loadModuleFromFile(candidate: string, extensions: string[], failedLookupLocation: string[], onlyRecordFailures: boolean, state: ModuleResolutionState): string {
+        if (!onlyRecordFailures) {
+            const directory = getDirectoryPath(candidate);
+            if (directory) {
+                onlyRecordFailures = !directoryProbablyExists(directory, state.host);
+            }
+        }
         return forEach(extensions, tryLoad);
 
         function tryLoad(ext: string): string {
@@ -565,15 +571,15 @@ namespace ts {
                 trace(state.host, Diagnostics.Found_package_json_at_0, packageJsonPath);
             }
 
-            let jsonContent: { typings?: string };
+            let jsonContent: { typings?: string, types?: string };
 
             try {
                 const jsonText = state.host.readFile(packageJsonPath);
-                jsonContent = jsonText ? <{ typings?: string }>JSON.parse(jsonText) : { typings: undefined };
+                jsonContent = jsonText ? <{ typings?: string, types?: string }>JSON.parse(jsonText) : { typings: undefined, types: undefined };
             }
             catch (e) {
                 // gracefully handle if readFile fails or returns not JSON
-                jsonContent = { typings: undefined };
+                jsonContent = { typings: undefined, types: undefined };
             }
 
             if (jsonContent.typings) {
@@ -608,20 +614,29 @@ namespace ts {
         return loadModuleFromFile(combinePaths(candidate, "index"), extensions, failedLookupLocation, !directoryExists, state);
     }
 
+    function loadModuleFromNodeModulesFolder(moduleName: string, directory: string, failedLookupLocations: string[], state: ModuleResolutionState): string {
+        const nodeModulesFolder = combinePaths(directory, "node_modules");
+        const nodeModulesFolderExists = directoryProbablyExists(nodeModulesFolder, state.host);
+        const candidate = normalizePath(combinePaths(nodeModulesFolder, moduleName));
+        // Load only typescript files irrespective of allowJs option if loading from node modules
+        let result = loadModuleFromFile(candidate, supportedTypeScriptExtensions, failedLookupLocations, !nodeModulesFolderExists, state);
+        if (result) {
+            return result;
+        }
+        result = loadNodeModuleFromDirectory(supportedTypeScriptExtensions, candidate, failedLookupLocations, !nodeModulesFolderExists, state);
+        if (result) {
+            return result;
+        }
+    }
+
     function loadModuleFromNodeModules(moduleName: string, directory: string, failedLookupLocations: string[], state: ModuleResolutionState): string {
         directory = normalizeSlashes(directory);
         while (true) {
             const baseName = getBaseFileName(directory);
             if (baseName !== "node_modules") {
-                const nodeModulesFolder = combinePaths(directory, "node_modules");
-                const nodeModulesFolderExists = directoryProbablyExists(nodeModulesFolder, state.host);
-                const candidate = normalizePath(combinePaths(nodeModulesFolder, moduleName));
-                // Load only typescript files irrespective of allowJs option if loading from node modules
-                let result = loadModuleFromFile(candidate, supportedTypeScriptExtensions, failedLookupLocations, !nodeModulesFolderExists, state);
-                if (result) {
-                    return result;
-                }
-                result = loadNodeModuleFromDirectory(supportedTypeScriptExtensions, candidate, failedLookupLocations, !nodeModulesFolderExists, state);
+                const result = 
+                    loadModuleFromNodeModulesFolder(moduleName, directory, failedLookupLocations, state) ||
+                    loadModuleFromNodeModulesFolder(combinePaths("@types", moduleName), directory, failedLookupLocations, state);
                 if (result) {
                     return result;
                 }

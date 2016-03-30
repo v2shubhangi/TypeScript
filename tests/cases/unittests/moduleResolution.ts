@@ -204,6 +204,13 @@ module ts {
                     "/a/b/c/d/node_modules/foo/index.ts",
                     "/a/b/c/d/node_modules/foo/index.tsx",
                     "/a/b/c/d/node_modules/foo/index.d.ts",
+                    "/a/b/c/d/node_modules/@types/foo.ts",
+                    "/a/b/c/d/node_modules/@types/foo.tsx",
+                    "/a/b/c/d/node_modules/@types/foo.d.ts",
+                    "/a/b/c/d/node_modules/@types/foo/package.json",
+                    "/a/b/c/d/node_modules/@types/foo/index.ts",
+                    "/a/b/c/d/node_modules/@types/foo/index.tsx",
+                    "/a/b/c/d/node_modules/@types/foo/index.d.ts",
                     "/a/b/c/node_modules/foo.ts",
                     "/a/b/c/node_modules/foo.tsx",
                     "/a/b/c/node_modules/foo.d.ts",
@@ -211,6 +218,13 @@ module ts {
                     "/a/b/c/node_modules/foo/index.ts",
                     "/a/b/c/node_modules/foo/index.tsx",
                     "/a/b/c/node_modules/foo/index.d.ts",
+                    "/a/b/c/node_modules/@types/foo.ts",
+                    "/a/b/c/node_modules/@types/foo.tsx",
+                    "/a/b/c/node_modules/@types/foo.d.ts",
+                    "/a/b/c/node_modules/@types/foo/package.json",
+                    "/a/b/c/node_modules/@types/foo/index.ts",
+                    "/a/b/c/node_modules/@types/foo/index.tsx",
+                    "/a/b/c/node_modules/@types/foo/index.d.ts",
                 ])
             }
         });
@@ -246,6 +260,13 @@ module ts {
                     "/a/node_modules/b/c/node_modules/d/node_modules/foo/index.ts",
                     "/a/node_modules/b/c/node_modules/d/node_modules/foo/index.tsx",
                     "/a/node_modules/b/c/node_modules/d/node_modules/foo/index.d.ts",
+                    "/a/node_modules/b/c/node_modules/d/node_modules/@types/foo.ts",
+                    "/a/node_modules/b/c/node_modules/d/node_modules/@types/foo.tsx",
+                    "/a/node_modules/b/c/node_modules/d/node_modules/@types/foo.d.ts",
+                    "/a/node_modules/b/c/node_modules/d/node_modules/@types/foo/package.json",
+                    "/a/node_modules/b/c/node_modules/d/node_modules/@types/foo/index.ts",
+                    "/a/node_modules/b/c/node_modules/d/node_modules/@types/foo/index.tsx",
+                    "/a/node_modules/b/c/node_modules/d/node_modules/@types/foo/index.d.ts",
                     "/a/node_modules/b/c/node_modules/foo.ts",
                     "/a/node_modules/b/c/node_modules/foo.tsx",
                     "/a/node_modules/b/c/node_modules/foo.d.ts",
@@ -253,6 +274,13 @@ module ts {
                     "/a/node_modules/b/c/node_modules/foo/index.ts",
                     "/a/node_modules/b/c/node_modules/foo/index.tsx",
                     "/a/node_modules/b/c/node_modules/foo/index.d.ts",
+                    "/a/node_modules/b/c/node_modules/@types/foo.ts",
+                    "/a/node_modules/b/c/node_modules/@types/foo.tsx",
+                    "/a/node_modules/b/c/node_modules/@types/foo.d.ts",
+                    "/a/node_modules/b/c/node_modules/@types/foo/package.json",
+                    "/a/node_modules/b/c/node_modules/@types/foo/index.ts",
+                    "/a/node_modules/b/c/node_modules/@types/foo/index.tsx",
+                    "/a/node_modules/b/c/node_modules/@types/foo/index.d.ts",
                     "/a/node_modules/b/node_modules/foo.ts",
                     "/a/node_modules/b/node_modules/foo.tsx",
                     "/a/node_modules/b/node_modules/foo.d.ts",
@@ -260,6 +288,13 @@ module ts {
                     "/a/node_modules/b/node_modules/foo/index.ts",
                     "/a/node_modules/b/node_modules/foo/index.tsx",
                     "/a/node_modules/b/node_modules/foo/index.d.ts",
+                    "/a/node_modules/b/node_modules/@types/foo.ts",
+                    "/a/node_modules/b/node_modules/@types/foo.tsx",
+                    "/a/node_modules/b/node_modules/@types/foo.d.ts",
+                    "/a/node_modules/b/node_modules/@types/foo/package.json",
+                    "/a/node_modules/b/node_modules/@types/foo/index.ts",
+                    "/a/node_modules/b/node_modules/@types/foo/index.tsx",
+                    "/a/node_modules/b/node_modules/@types/foo/index.d.ts",
                     "/a/node_modules/foo.ts",
                     "/a/node_modules/foo.tsx",
                     "/a/node_modules/foo.d.ts",
@@ -267,7 +302,6 @@ module ts {
                     "/a/node_modules/foo/index.ts",
                     "/a/node_modules/foo/index.tsx"
                 ]);
-
             }
         });
     });
@@ -664,6 +698,13 @@ import b = require("./moduleB.ts");
                     "/root/folder1/node_modules/file6/index.ts",
                     "/root/folder1/node_modules/file6/index.tsx",
                     "/root/folder1/node_modules/file6/index.d.ts",
+                    "/root/folder1/node_modules/@types/file6.ts",
+                    "/root/folder1/node_modules/@types/file6.tsx",
+                    "/root/folder1/node_modules/@types/file6.d.ts",
+                    "/root/folder1/node_modules/@types/file6/package.json",
+                    "/root/folder1/node_modules/@types/file6/index.ts",
+                    "/root/folder1/node_modules/@types/file6/index.tsx",
+                    "/root/folder1/node_modules/@types/file6/index.d.ts"
                     // success on /root/node_modules/file6.ts
                 ]);
 
@@ -912,5 +953,86 @@ import b = require("./moduleB.ts");
             const result = resolveModuleName("someName", "/a/b/c/d", { moduleResolution: ModuleResolutionKind.NodeJs }, host);
             assert(!result.resolvedModule);
         });
+    });
+
+    describe("Type reference directive resolution: ", () => {
+        function test(compilationRoot: string, typeDirective: string, primary: boolean, initialFile: File, targetFile: File, ...otherFiles: File[]) {
+            const host = createModuleResolutionHost(false, ...[initialFile, targetFile].concat(...otherFiles));
+            const result = resolveTypeDirective(typeDirective, initialFile.name, compilationRoot, {}, host);
+            assert(result.resolvedTypeDirective.resolvedFileName !== undefined, "expected type directive to be resolved");
+            assert.equal(result.resolvedTypeDirective.resolvedFileName, targetFile.name, "unexpected result of type reference resolution");
+            assert.equal(result.resolvedTypeDirective.primary, primary, "unexpected 'primary' value");
+        }
+
+        it("Can be resolved from primary location", () => {
+            {
+                const f1 = { name: "/root/src/app.ts" }
+                const f2 = { name: "/root/src/types/lib/index.d.ts" }; 
+                test(/*libraryRoot*/"/root/src", /* typeDirective */"lib", /*primary*/ true, f1, f2);
+            }
+            {
+                const f1 = { name: "/root/src/app.ts" }
+                const f2 = { name: "/root/src/types/lib/typings/lib.d.ts" };
+                const package = { name: "/root/src/types/lib/package.json", content: JSON.stringify({types: "typings/lib.d.ts"}) }; 
+                test(/*libraryRoot*/"/root/src", /* typeDirective */"lib", /*primary*/ true, f1, f2, package);
+            }
+            {
+                const f1 = { name: "/root/src/app.ts" }
+                const f2 = { name: "/root/src/node_modules/lib/index.d.ts" }; 
+                test(/*libraryRoot*/"/root/src", /* typeDirective */"lib", /*primary*/ true, f1, f2);
+            }
+            {
+                const f1 = { name: "/root/src/app.ts" }
+                const f2 = { name: "/root/src/node_modules/lib/typings/lib.d.ts" };
+                const package = { name: "/root/src/node_modules/lib/package.json", content: JSON.stringify({types: "typings/lib.d.ts"}) }; 
+                test(/*libraryRoot*/"/root/src", /* typeDirective */"lib", /*primary*/ true, f1, f2, package);
+            }
+            {
+                const f1 = { name: "/root/src/app.ts" }
+                const f2 = { name: "/root/src/node_modules/@types/lib/index.d.ts" }; 
+                test(/*libraryRoot*/"/root/src", /* typeDirective */"lib", /*primary*/ true, f1, f2);
+            }
+            {
+                const f1 = { name: "/root/src/app.ts" }
+                const f2 = { name: "/root/src/node_modules/@types/lib/typings/lib.d.ts" };
+                const package = { name: "/root/src/node_modules/@types/lib/package.json", content: JSON.stringify({types: "typings/lib.d.ts"}) }; 
+                test(/*libraryRoot*/"/root/src", /* typeDirective */"lib", /*primary*/ true, f1, f2, package);
+            }
+        });
+        it("Can be resolved from secondary location", () => {
+            {
+                const f1 = { name: "/root/src/app.ts" }
+                const f2 = { name: "/root/node_modules/lib.d.ts" };
+                test(/*libraryRoot*/"/root/src", /* typeDirective */"lib", /*primary*/ false, f1, f2);
+            }
+            {
+                const f1 = { name: "/root/src/app.ts" }
+                const f2 = { name: "/root/node_modules/lib/index.d.ts" };
+                test(/*libraryRoot*/"/root/src", /* typeDirective */"lib", /*primary*/ false, f1, f2);
+            }
+            {
+                const f1 = { name: "/root/src/app.ts" }
+                const f2 = { name: "/root/node_modules/lib/typings/lib.d.ts" };
+                const package = { name: "/root/node_modules/lib/package.json", content: JSON.stringify({typings: "typings/lib.d.ts"}) };
+                test(/*libraryRoot*/"/root/src", /* typeDirective */"lib", /*primary*/ false, f1, f2, package);
+            }
+            {
+                const f1 = { name: "/root/src/app.ts" }
+                const f2 = { name: "/root/node_modules/@types/lib/index.d.ts" };
+                test(/*libraryRoot*/"/root/src", /* typeDirective */"lib", /*primary*/ false, f1, f2);
+            }
+            {
+                const f1 = { name: "/root/src/app.ts" }
+                const f2 = { name: "/root/node_modules/@types/lib/typings/lib.d.ts" };
+                const package = { name: "/root/node_modules/@types/lib/package.json", content: JSON.stringify({typings: "typings/lib.d.ts"}) };
+                test(/*libraryRoot*/"/root/src", /* typeDirective */"lib", /*primary*/ false, f1, f2, package);
+            }
+        });
+        it("Primary resolution overrides secondary resolutions", () => {
+            assert(false, "TODO");
+        })
+        it("Reused program keeps errors", () => {
+            assert(false, "TODO");
+        })
     });
 }
