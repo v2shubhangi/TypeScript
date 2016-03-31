@@ -119,7 +119,7 @@ namespace ts {
         sourceFile.resolvedModules[moduleNameText] = resolvedModule;
     }
 
-    export function setResolvedTypeDirective(sourceFile: SourceFile, typeDirectiveName: string, resolvedTypeDirective: ResolvedTypeDirective): void {
+    export function setResolvedTypeDirective(sourceFile: SourceFile, typeDirectiveName: string, resolvedTypeDirective: ResolvedTypeReferenceDirective): void {
         if (!sourceFile.resolvedTypeDirectiveNames) {
             sourceFile.resolvedTypeDirectiveNames = {};
         }
@@ -133,7 +133,7 @@ namespace ts {
     }
 
     /* @internal */
-    export function typeDirectiveIsEqualTo(oldResolution: ResolvedTypeDirective, newResolution: ResolvedTypeDirective): boolean {
+    export function typeDirectiveIsEqualTo(oldResolution: ResolvedTypeReferenceDirective, newResolution: ResolvedTypeReferenceDirective): boolean {
         return oldResolution.resolvedFileName === newResolution.resolvedFileName && oldResolution.primary === newResolution.primary;
     }
 

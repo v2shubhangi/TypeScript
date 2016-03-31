@@ -1584,7 +1584,7 @@ namespace ts {
         // It is used to resolve module names in the checker.
         // Content of this field should never be used directly - use getResolvedModuleFileName/setResolvedModuleFileName functions instead
         /* @internal */ resolvedModules: Map<ResolvedModule>;
-        /* @internal */ resolvedTypeDirectiveNames: Map<ResolvedTypeDirective>;
+        /* @internal */ resolvedTypeDirectiveNames: Map<ResolvedTypeReferenceDirective>;
         /* @internal */ imports: LiteralExpression[];
         /* @internal */ moduleAugmentations: LiteralExpression[];
     }
@@ -1661,7 +1661,7 @@ namespace ts {
         /* @internal */ getTypeCount(): number;
 
         /* @internal */ getFileProcessingDiagnostics(): DiagnosticCollection;
-        /* @internal */ resolvedTypeDirectives: Map<ResolvedTypeDirective>;
+        /* @internal */ resolvedTypeDirectives: Map<ResolvedTypeReferenceDirective>;
         // For testing purposes only.
         /* @internal */ structureIsReused?: boolean;
     }
@@ -2755,7 +2755,7 @@ namespace ts {
         failedLookupLocations: string[];
     }
 
-    export interface ResolvedTypeDirective {
+    export interface ResolvedTypeReferenceDirective {
         // True if the type declaration file was found in a primary lookup location
         primary: boolean;
         // The location of the .d.ts file we located, or undefined if resolution failed
@@ -2763,7 +2763,7 @@ namespace ts {
     }
 
     export interface ResolvedTypeDirectiveWithFailedLookupLocations {
-        resolvedTypeDirective: ResolvedTypeDirective;
+        resolvedTypeDirective: ResolvedTypeReferenceDirective;
         failedLookupLocations: string[];
     }
 
@@ -2789,7 +2789,7 @@ namespace ts {
         /**
          * This method is a companion for 'resolveModuleNames' and is used to resolve 'types' references to actual type declaration files 
          */
-        resolveTypeDirectiveNames?(typeDirectiveNames: string[], containingFile: string): ResolvedTypeDirective[];
+        resolveTypeReferenceDirectives?(typeReferenceDirectiveNames: string[], containingFile: string): ResolvedTypeReferenceDirective[];
     }
 
     export interface TextSpan {

@@ -815,7 +815,7 @@ namespace ts {
         public identifiers: Map<string>;
         public nameTable: Map<number>;
         public resolvedModules: Map<ResolvedModule>;
-        public resolvedTypeDirectiveNames: Map<ResolvedTypeDirective>;
+        public resolvedTypeDirectiveNames: Map<ResolvedTypeReferenceDirective>;
         public imports: LiteralExpression[];
         public moduleAugmentations: LiteralExpression[];
         private namedDeclarations: Map<Declaration[]>;
@@ -1042,7 +1042,7 @@ namespace ts {
          * host specific questions using 'getScriptSnapshot'.
          */
         resolveModuleNames?(moduleNames: string[], containingFile: string): ResolvedModule[];
-        resolveTypeDirectiveNames?(typeDirectiveNames: string[], containingFile: string): ResolvedTypeDirective[];
+        resolveTypeReferenceDirectives?(typeDirectiveNames: string[], containingFile: string): ResolvedTypeReferenceDirective[];
         directoryExists?(directoryName: string): boolean;
     }
 
@@ -2839,7 +2839,7 @@ namespace ts {
                 getCurrentDirectory: () => currentDirectory,
                 fileExists: (fileName): boolean => {
                     // stub missing host functionality
-                    Debug.assert(!host.resolveModuleNames);
+                    Debug.assert(!host.resolveModuleNames || !host.resolveTypeReferenceDirectives);
                     return hostCache.getOrCreateEntry(fileName) !== undefined;
                 },
                 readFile: (fileName): string => {
@@ -2848,7 +2848,7 @@ namespace ts {
                     return entry && entry.scriptSnapshot.getText(0, entry.scriptSnapshot.getLength());
                 },
                 directoryExists: directoryName => {
-                    Debug.assert(!host.resolveModuleNames);
+                    Debug.assert(!host.resolveModuleNames || !host.resolveTypeReferenceDirectives);
                     return directoryProbablyExists(directoryName, host);
                 }
             };
@@ -2858,6 +2858,11 @@ namespace ts {
 
             if (host.resolveModuleNames) {
                 compilerHost.resolveModuleNames = (moduleNames, containingFile) => host.resolveModuleNames(moduleNames, containingFile);
+            }
+            if (host.resolveTypeReferenceDirectives) {
+                compilerHost.resolveTypeReferenceDirectives = (typeReferenceDirectiveNames, containingFile) => { 
+                    return host.resolveTypeReferenceDirectives(typeReferenceDirectiveNames, containingFile);
+                };
             }
 
             const newProgram = createProgram(hostCache.getRootFileNames(), newSettings, compilerHost, program);

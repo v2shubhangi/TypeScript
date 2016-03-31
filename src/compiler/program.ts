@@ -236,7 +236,12 @@ namespace ts {
     }
 
     function getEffectiveLibraryPrimarySearchPaths(options: CompilerOptions): string[] {
-        return options.librarySearchPaths || (options.configFilePath ? [options.configFilePath].concat(defaultLibrarySearchPaths) : defaultLibrarySearchPaths);
+        if (options.librarySearchPaths) {
+            return options.librarySearchPaths;
+        }
+        return options.configFilePath 
+            ? [getDirectoryPath(options.configFilePath)].concat(defaultLibrarySearchPaths) 
+            : defaultLibrarySearchPaths;
     }
 
     export function resolveTypeDirective(typeDirectiveName: string, containingFile: string, compilationRoot: string, options: CompilerOptions, host: ModuleResolutionHost): ResolvedTypeDirectiveWithFailedLookupLocations {
@@ -909,7 +914,7 @@ namespace ts {
         let noDiagnosticsTypeChecker: TypeChecker;
         let classifiableNames: Map<string>;
 
-        let resolvedTypeDirectives: Map<ResolvedTypeDirective> = {};
+        let resolvedTypeDirectives: Map<ResolvedTypeReferenceDirective> = {};
         let fileProcessingDiagnostics = createDiagnosticCollection();
         let skipDefaultLib = options.noLib;
         const programDiagnostics = createDiagnosticCollection();
@@ -934,9 +939,9 @@ namespace ts {
             resolveModuleNamesWorker = (moduleNames, containingFile) => loadWithLocalCache(moduleNames, containingFile, loader);
         }
 
-        let resolveTypeDirectiveNamesWorker: (typeDirectiveNames: string[], containingFile: string) => ResolvedTypeDirective[];
-        if (host.resolveTypeDirectiveNames) {
-            resolveTypeDirectiveNamesWorker = (typeDirectiveNames, containingFile) => host.resolveTypeDirectiveNames(typeDirectiveNames, containingFile);
+        let resolveTypeDirectiveNamesWorker: (typeDirectiveNames: string[], containingFile: string) => ResolvedTypeReferenceDirective[];
+        if (host.resolveTypeReferenceDirectives) {
+            resolveTypeDirectiveNamesWorker = (typeDirectiveNames, containingFile) => host.resolveTypeReferenceDirectives(typeDirectiveNames, containingFile);
         }
         else {
             const loader = (typesRef: string, containingFile: string) => resolveTypeDirective(typesRef, containingFile, libraryRoot, options, host).resolvedTypeDirective;
