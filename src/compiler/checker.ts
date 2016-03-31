@@ -138,7 +138,7 @@ namespace ts {
 
         const globals: SymbolTable = {};
 
-        let globalESSymbolConstructorSymbol: Symbol;
+        let getGlobalESSymbolConstructorSymbol: () => Symbol;
 
         let getGlobalPromiseConstructorSymbol: () => Symbol;
 
@@ -150,14 +150,19 @@ namespace ts {
         let globalNumberType: ObjectType;
         let globalBooleanType: ObjectType;
         let globalRegExpType: ObjectType;
-        let globalTemplateStringsArrayType: ObjectType;
-        let globalESSymbolType: ObjectType;
-        let globalIterableType: GenericType;
-        let globalIteratorType: GenericType;
-        let globalIterableIteratorType: GenericType;
-
         let anyArrayType: Type;
         let anyReadonlyArrayType: Type;
+
+        // The library files are only loaded when the feature is used.
+        // This allows users to just specify library files they want to used through --lib
+        // and they will not get an error from not having unrelated library files
+        let getGlobalTemplateStringsArrayType: () => ObjectType;
+
+        let getGlobalESSymbolType: () => ObjectType;
+        let getGlobalIterableType: () => GenericType;
+        let getGlobalIteratorType: () => GenericType;
+        let getGlobalIterableIteratorType: () => GenericType;
+
         let getGlobalClassDecoratorType: () => ObjectType;
         let getGlobalParameterDecoratorType: () => ObjectType;
         let getGlobalPropertyDecoratorType: () => ObjectType;
@@ -3973,7 +3978,7 @@ namespace ts {
                 type = globalBooleanType;
             }
             else if (type.flags & TypeFlags.ESSymbol) {
-                type = globalESSymbolType;
+                type = getGlobalESSymbolType();
             }
             return type;
         }
@@ -4744,10 +4749,6 @@ namespace ts {
             return typeSymbol && getDeclaredTypeOfSymbol(typeSymbol);
         }
 
-        function getGlobalESSymbolConstructorSymbol() {
-            return globalESSymbolConstructorSymbol || (globalESSymbolConstructorSymbol = getGlobalValueSymbol("Symbol"));
-        }
-
         /**
           * Creates a TypeReference for a generic `TypedPropertyDescriptor<T>`.
           */
@@ -4766,11 +4767,11 @@ namespace ts {
         }
 
         function createIterableType(elementType: Type): Type {
-            return createTypeFromGenericGlobalType(globalIterableType, [elementType]);
+            return createTypeFromGenericGlobalType(getGlobalIterableType(), [elementType]);
         }
 
         function createIterableIteratorType(elementType: Type): Type {
-            return createTypeFromGenericGlobalType(globalIterableIteratorType, [elementType]);
+            return createTypeFromGenericGlobalType(getGlobalIterableIteratorType(), [elementType]);
         }
 
         function createArrayType(elementType: Type): Type {
@@ -5397,6 +5398,10 @@ namespace ts {
             return checkTypeAssignableTo(source, target, /*errorNode*/ undefined);
         }
 
+        /**
+         * This is *not* a bi-directional relationship.
+         * If one needs to check both directions for comparability, use a second call to this function or 'checkTypeComparableTo'.
+         */
         function isTypeComparableTo(source: Type, target: Type): boolean {
             return checkTypeComparableTo(source, target, /*errorNode*/ undefined);
         }
@@ -5409,6 +5414,10 @@ namespace ts {
             return checkTypeRelatedTo(source, target, assignableRelation, errorNode, headMessage, containingMessageChain);
         }
 
+        /**
+         * This is *not* a bi-directional relationship.
+         * If one needs to check both directions for comparability, use a second call to this function or 'isTypeComparableTo'.
+         */
         function checkTypeComparableTo(source: Type, target: Type, errorNode: Node, headMessage?: DiagnosticMessage, containingMessageChain?: DiagnosticMessageChain): boolean {
             return checkTypeRelatedTo(source, target, comparableRelation, errorNode, headMessage, containingMessageChain);
         }
@@ -5619,7 +5628,14 @@ namespace ts {
                     sourceType = typeToString(source, /*enclosingDeclaration*/ undefined, TypeFormatFlags.UseFullyQualifiedType);
                     targetType = typeToString(target, /*enclosingDeclaration*/ undefined, TypeFormatFlags.UseFullyQualifiedType);
                 }
-                reportError(message || Diagnostics.Type_0_is_not_assignable_to_type_1, sourceType, targetType);
+
+                if (!message) {
+                    message = relation === comparableRelation ?
+                        Diagnostics.Type_0_is_not_comparable_to_type_1 :
+                        Diagnostics.Type_0_is_not_assignable_to_type_1;
+                }
+
+                reportError(message, sourceType, targetType);
             }
 
             // Compare two types and return
@@ -5643,15 +5659,17 @@ namespace ts {
                 }
                 if (source.flags & TypeFlags.Enum && target === numberType) return Ternary.True;
                 if (source.flags & TypeFlags.Enum && target.flags & TypeFlags.Enum) {
-                    if (result = enumRelatedTo(source, target)) {
+                    if (result = enumRelatedTo(source, target, reportErrors)) {
                         return result;
                     }
                 }
                 if (source.flags & TypeFlags.StringLiteral && target === stringType) return Ternary.True;
+
                 if (relation === assignableRelation || relation === comparableRelation) {
                     if (isTypeAny(source)) return Ternary.True;
                     if (source === numberType && target.flags & TypeFlags.Enum) return Ternary.True;
                 }
+
                 if (source.flags & TypeFlags.Boolean && target.flags & TypeFlags.Boolean) {
                     return Ternary.True;
                 }
@@ -5674,26 +5692,28 @@ namespace ts {
 
                 const saveErrorInfo = errorInfo;
 
-                // Note that the "each" checks must precede the "some" checks to produce the correct results
+                // Note that these checks are specifically ordered to produce correct results.
                 if (source.flags & TypeFlags.Union) {
                     if (relation === comparableRelation) {
-                        if (result = someTypeRelatedToType(<UnionType>source, target, reportErrors)) {
-                            return result;
-                        }
+                        result = someTypeRelatedToType(source as UnionType, target, reportErrors);
                     }
                     else {
-                        if (result = eachTypeRelatedToType(<UnionType>source, target, reportErrors)) {
-                            return result;
-                        }
+                        result = eachTypeRelatedToType(source as UnionType, target, reportErrors);
+                    }
+
+                    if (result) {
+                        return result;
                     }
                 }
                 else if (target.flags & TypeFlags.Intersection) {
-                    if (result = typeRelatedToEachType(source, <IntersectionType>target, reportErrors)) {
+                    result = typeRelatedToEachType(source, target as IntersectionType, reportErrors);
+
+                    if (result) {
                         return result;
                     }
                 }
                 else {
-                    // It is necessary to try "some" checks on both sides because there may be nested "each" checks
+                    // It is necessary to try these "some" checks on both sides because there may be nested "each" checks
                     // on either side that need to be prioritized. For example, A | B = (A | B) & (C | D) or
                     // A & B = (A & B) | (C & D).
                     if (source.flags & TypeFlags.Intersection) {
@@ -5775,8 +5795,8 @@ namespace ts {
                 }
                 if (source.flags & TypeFlags.Union && target.flags & TypeFlags.Union ||
                     source.flags & TypeFlags.Intersection && target.flags & TypeFlags.Intersection) {
-                    if (result = eachTypeRelatedToSomeType(<UnionOrIntersectionType>source, <UnionOrIntersectionType>target)) {
-                        if (result &= eachTypeRelatedToSomeType(<UnionOrIntersectionType>target, <UnionOrIntersectionType>source)) {
+                    if (result = eachTypeRelatedToSomeType(<UnionOrIntersectionType>source, <UnionOrIntersectionType>target, /*reportErrors*/ false)) {
+                        if (result &= eachTypeRelatedToSomeType(<UnionOrIntersectionType>target, <UnionOrIntersectionType>source, /*reportErrors*/ false)) {
                             return result;
                         }
                     }
@@ -5827,7 +5847,7 @@ namespace ts {
                 return false;
             }
 
-            function eachTypeRelatedToSomeType(source: UnionOrIntersectionType, target: UnionOrIntersectionType): Ternary {
+            function eachTypeRelatedToSomeType(source: UnionOrIntersectionType, target: UnionOrIntersectionType, reportErrors: boolean): Ternary {
                 let result = Ternary.True;
                 const sourceTypes = source.types;
                 for (const sourceType of sourceTypes) {
@@ -6266,7 +6286,7 @@ namespace ts {
                 return Ternary.False;
             }
 
-            function enumRelatedTo(source: Type, target: Type) {
+            function enumRelatedTo(source: Type, target: Type, reportErrors?: boolean) {
                 if (source.symbol.name !== target.symbol.name ||
                     source.symbol.flags & SymbolFlags.ConstEnum ||
                     target.symbol.flags & SymbolFlags.ConstEnum) {
@@ -6277,9 +6297,11 @@ namespace ts {
                     if (property.flags & SymbolFlags.EnumMember) {
                         const targetProperty = getPropertyOfType(targetEnumType, property.name);
                         if (!targetProperty || !(targetProperty.flags & SymbolFlags.EnumMember)) {
-                            reportError(Diagnostics.Property_0_is_missing_in_type_1,
-                                property.name,
-                                typeToString(target, /*enclosingDeclaration*/ undefined, TypeFormatFlags.UseFullyQualifiedType));
+                            if (reportErrors) {
+                                reportError(Diagnostics.Property_0_is_missing_in_type_1,
+                                    property.name,
+                                    typeToString(target, /*enclosingDeclaration*/ undefined, TypeFormatFlags.UseFullyQualifiedType));
+                            }
                             return Ternary.False;
                         }
                     }
@@ -9033,7 +9055,12 @@ namespace ts {
             checkJsxOpeningLikeElement(node.openingElement);
 
             // Perform resolution on the closing tag so that rename/go to definition/etc work
-            getJsxTagSymbol(node.closingElement);
+            if (isJsxIntrinsicIdentifier(node.closingElement.tagName)) {
+                getIntrinsicTagSymbol(node.closingElement);
+            }
+            else {
+                checkExpression(node.closingElement.tagName);
+            }
 
             // Check children
             for (const child of node.children) {
@@ -9141,18 +9168,6 @@ namespace ts {
                 return jsxTypes[name] = getExportedTypeFromNamespace(JsxNames.JSX, name) || unknownType;
             }
             return jsxTypes[name];
-        }
-
-        function getJsxTagSymbol(node: JsxOpeningLikeElement | JsxClosingElement): Symbol {
-            if (isJsxIntrinsicIdentifier(node.tagName)) {
-                return getIntrinsicTagSymbol(node);
-            }
-            else if (node.tagName.kind === SyntaxKind.Identifier) {
-                return resolveEntityName(node.tagName, SymbolFlags.Value | SymbolFlags.Alias);
-            }
-            else {
-                return checkExpression(node.tagName).symbol;
-            }
         }
 
         /**
@@ -9518,14 +9533,11 @@ namespace ts {
             }
 
             // Property is known to be private or protected at this point
-            // Get the declaring and enclosing class instance types
-            const enclosingClassDeclaration = getContainingClass(node);
 
-            const enclosingClass = enclosingClassDeclaration ? <InterfaceType>getDeclaredTypeOfSymbol(getSymbolOfNode(enclosingClassDeclaration)) : undefined;
-
-            // Private property is accessible if declaring and enclosing class are the same
+            // Private property is accessible if the property is within the declaring class
             if (flags & NodeFlags.Private) {
-                if (declaringClass !== enclosingClass) {
+                const declaringClassDeclaration = <ClassLikeDeclaration>getClassLikeDeclarationOfSymbol(getParentOfSymbol(prop));
+                if (!isNodeWithinClass(node, declaringClassDeclaration)) {
                     error(errorNode, Diagnostics.Property_0_is_private_and_only_accessible_within_class_1, symbolToString(prop), typeToString(declaringClass));
                     return false;
                 }
@@ -9538,8 +9550,15 @@ namespace ts {
             if (left.kind === SyntaxKind.SuperKeyword) {
                 return true;
             }
-            // A protected property is accessible in the declaring class and classes derived from it
-            if (!enclosingClass || !hasBaseType(enclosingClass, declaringClass)) {
+
+            // Get the enclosing class that has the declaring class as its base type
+            const enclosingClass = forEachEnclosingClass(node, enclosingDeclaration => {
+                const enclosingClass = <InterfaceType>getDeclaredTypeOfSymbol(getSymbolOfNode(enclosingDeclaration));
+                return hasBaseType(enclosingClass, declaringClass) ? enclosingClass : undefined;
+            });
+
+            // A protected property is accessible if the property is within the declaring class or classes derived from it
+            if (!enclosingClass) {
                 error(errorNode, Diagnostics.Property_0_is_protected_and_only_accessible_within_class_1_and_its_subclasses, symbolToString(prop), typeToString(declaringClass));
                 return false;
             }
@@ -10416,7 +10435,7 @@ namespace ts {
                 return getEffectiveDecoratorArgumentType(<Decorator>node, argIndex);
             }
             else if (argIndex === 0 && node.kind === SyntaxKind.TaggedTemplateExpression) {
-                return globalTemplateStringsArrayType;
+                return getGlobalTemplateStringsArrayType();
             }
 
             // This is not a synthetic argument, so we return 'undefined'
@@ -11016,7 +11035,7 @@ namespace ts {
             if (produceDiagnostics && targetType !== unknownType) {
                 const widenedType = getWidenedType(exprType);
                 if (!isTypeComparableTo(targetType, widenedType)) {
-                    checkTypeComparableTo(exprType, targetType, node, Diagnostics.Neither_type_0_nor_type_1_is_assignable_to_the_other);
+                    checkTypeComparableTo(exprType, targetType, node, Diagnostics.Type_0_cannot_be_converted_to_type_1);
                 }
             }
             return targetType;
@@ -14180,7 +14199,7 @@ namespace ts {
             if (!typeAsIterable.iterableElementType) {
                 // As an optimization, if the type is instantiated directly using the globalIterableType (Iterable<number>),
                 // then just grab its type argument.
-                if ((type.flags & TypeFlags.Reference) && (<GenericType>type).target === globalIterableType) {
+                if ((type.flags & TypeFlags.Reference) && (<GenericType>type).target === getGlobalIterableType()) {
                     typeAsIterable.iterableElementType = (<GenericType>type).typeArguments[0];
                 }
                 else {
@@ -14226,7 +14245,7 @@ namespace ts {
             if (!typeAsIterator.iteratorElementType) {
                 // As an optimization, if the type is instantiated directly using the globalIteratorType (Iterator<number>),
                 // then just grab its type argument.
-                if ((type.flags & TypeFlags.Reference) && (<GenericType>type).target === globalIteratorType) {
+                if ((type.flags & TypeFlags.Reference) && (<GenericType>type).target === getGlobalIteratorType()) {
                     typeAsIterator.iteratorElementType = (<GenericType>type).typeArguments[0];
                 }
                 else {
@@ -14270,7 +14289,7 @@ namespace ts {
 
             // As an optimization, if the type is instantiated directly using the globalIterableIteratorType (IterableIterator<number>),
             // then just grab its type argument.
-            if ((type.flags & TypeFlags.Reference) && (<GenericType>type).target === globalIterableIteratorType) {
+            if ((type.flags & TypeFlags.Reference) && (<GenericType>type).target === getGlobalIterableIteratorType()) {
                 return (<GenericType>type).typeArguments[0];
             }
 
@@ -14459,7 +14478,7 @@ namespace ts {
 
                 if (produceDiagnostics && clause.kind === SyntaxKind.CaseClause) {
                     const caseClause = <CaseClause>clause;
-                    // TypeScript 1.0 spec (April 2014):5.9
+                    // TypeScript 1.0 spec (April 2014): 5.9
                     // In a 'switch' statement, each 'case' expression must be of a type that is comparable
                     // to or from the type of the 'switch' expression.
                     const caseType = checkExpression(caseClause.expression);
@@ -16125,16 +16144,20 @@ namespace ts {
             return node.parent && node.parent.kind === SyntaxKind.ExpressionWithTypeArguments;
         }
 
-        function isNodeWithinClass(node: Node, classDeclaration: ClassLikeDeclaration) {
+        function forEachEnclosingClass<T>(node: Node, callback: (node: Node) => T): T {
+            let result: T;
+
             while (true) {
                 node = getContainingClass(node);
-                if (!node) {
-                    return false;
-                }
-                if (node === classDeclaration) {
-                    return true;
-                }
+                if (!node) break;
+                if (result = callback(node)) break;
             }
+
+            return result;
+        }
+
+        function isNodeWithinClass(node: Node, classDeclaration: ClassLikeDeclaration) {
+            return !!forEachEnclosingClass(node, n => n === classDeclaration);
         }
 
         function getLeftSideOfImportEqualsOrExportAssignment(nodeOnRightSide: EntityName): ImportEqualsDeclaration | ExportAssignment {
@@ -16211,12 +16234,6 @@ namespace ts {
                 meaning |= SymbolFlags.Alias;
                 return resolveEntityName(<EntityName>entityName, meaning);
             }
-            else if ((entityName.parent.kind === SyntaxKind.JsxOpeningElement) ||
-                (entityName.parent.kind === SyntaxKind.JsxSelfClosingElement) ||
-                (entityName.parent.kind === SyntaxKind.JsxClosingElement)) {
-
-                return getJsxTagSymbol(<JsxOpeningLikeElement>entityName.parent);
-            }
             else if (isExpression(entityName)) {
                 if (nodeIsMissing(entityName)) {
                     // Missing entity name.
@@ -16224,6 +16241,10 @@ namespace ts {
                 }
 
                 if (entityName.kind === SyntaxKind.Identifier) {
+                    if (isJSXTagName(entityName) && isJsxIntrinsicIdentifier(<Identifier>entityName)) {
+                        return getIntrinsicTagSymbol(<JsxOpeningLikeElement>entityName.parent);
+                    }
+
                     // Include aliases in the meaning, this ensures that we do not follow aliases to where they point and instead
                     // return the alias symbol.
                     const meaning: SymbolFlags = SymbolFlags.Value | SymbolFlags.Alias;
@@ -16878,12 +16899,14 @@ namespace ts {
             globalNumberType = getGlobalType("Number");
             globalBooleanType = getGlobalType("Boolean");
             globalRegExpType = getGlobalType("RegExp");
+
             jsxElementType = getExportedTypeFromNamespace("JSX", JsxNames.Element);
             getGlobalClassDecoratorType = memoize(() => getGlobalType("ClassDecorator"));
             getGlobalPropertyDecoratorType = memoize(() => getGlobalType("PropertyDecorator"));
             getGlobalMethodDecoratorType = memoize(() => getGlobalType("MethodDecorator"));
             getGlobalParameterDecoratorType = memoize(() => getGlobalType("ParameterDecorator"));
             getGlobalTypedPropertyDescriptorType = memoize(() => getGlobalType("TypedPropertyDescriptor", /*arity*/ 1));
+            getGlobalESSymbolConstructorSymbol = memoize(() => getGlobalValueSymbol("Symbol"));
             getGlobalPromiseType = memoize(() => getGlobalType("Promise", /*arity*/ 1));
             tryGetGlobalPromiseType = memoize(() => getGlobalSymbol("Promise", SymbolFlags.Type, /*diagnostic*/ undefined) && getGlobalPromiseType());
             getGlobalPromiseLikeType = memoize(() => getGlobalType("PromiseLike", /*arity*/ 1));
@@ -16892,27 +16915,19 @@ namespace ts {
             getGlobalPromiseConstructorLikeType = memoize(() => getGlobalType("PromiseConstructorLike"));
             getGlobalThenableType = memoize(createThenableType);
 
-            // If we're in ES6 mode, load the TemplateStringsArray.
-            // Otherwise, default to 'unknown' for the purposes of type checking in LS scenarios.
+            getGlobalTemplateStringsArrayType = memoize(() => getGlobalType("TemplateStringsArray"));
+
             if (languageVersion >= ScriptTarget.ES6) {
-                globalTemplateStringsArrayType = getGlobalType("TemplateStringsArray");
-                globalESSymbolType = getGlobalType("Symbol");
-                globalESSymbolConstructorSymbol = getGlobalValueSymbol("Symbol");
-                globalIterableType = <GenericType>getGlobalType("Iterable", /*arity*/ 1);
-                globalIteratorType = <GenericType>getGlobalType("Iterator", /*arity*/ 1);
-                globalIterableIteratorType = <GenericType>getGlobalType("IterableIterator", /*arity*/ 1);
+                getGlobalESSymbolType = memoize(() => getGlobalType("Symbol"));
+                getGlobalIterableType = memoize(() => <GenericType>getGlobalType("Iterable", /*arity*/ 1));
+                getGlobalIteratorType = memoize(() => <GenericType>getGlobalType("Iterator", /*arity*/ 1));
+                getGlobalIterableIteratorType = memoize(() => <GenericType>getGlobalType("IterableIterator", /*arity*/ 1));
             }
             else {
-                globalTemplateStringsArrayType = unknownType;
-
-                // Consider putting Symbol interface in lib.d.ts. On the plus side, putting it in lib.d.ts would make it
-                // extensible for Polyfilling Symbols. But putting it into lib.d.ts could also break users that have
-                // a global Symbol already, particularly if it is a class.
-                globalESSymbolType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
-                globalESSymbolConstructorSymbol = undefined;
-                globalIterableType = emptyGenericType;
-                globalIteratorType = emptyGenericType;
-                globalIterableIteratorType = emptyGenericType;
+                getGlobalESSymbolType = memoize(() => emptyObjectType);
+                getGlobalIterableType = memoize(() => emptyGenericType);
+                getGlobalIteratorType = memoize(() => emptyGenericType);
+                getGlobalIterableIteratorType = memoize(() => emptyGenericType);
             }
 
             anyArrayType = createArrayType(anyType);

@@ -1047,7 +1047,7 @@
         "category": "Error",
         "code": 2351
     },
-    "Neither type '{0}' nor type '{1}' is assignable to the other.": {
+    "Type '{0}' cannot be converted to type '{1}'.": {
         "category": "Error",
         "code": 2352
     },
@@ -1875,6 +1875,10 @@
         "category": "Error",
         "code": 2677
     },
+    "Type '{0}' is not comparable to type '{1}'.": {
+        "category": "Error",
+        "code": 2678
+    },
     "Import declaration '{0}' is using private name '{1}'.": {
         "category": "Error",
         "code": 4000
@@ -2493,6 +2497,10 @@
         "category": "Message",
         "code": 6078
     },
+    "Specify library files to be included in the compilation: ": {
+        "category": "Message",
+        "code": 6079
+    },
     "Specify JSX code generation: 'preserve' or 'react'": {
         "category": "Message",
         "code": 6080
@@ -2625,30 +2633,35 @@
         "category": "Message",
         "code": 6113
     },
-    "======== Resolving type reference directive '{0}' from '{1}' with compilation root dir '{2}'. ========": {
-        "category": "Message",
+    "Unknown option 'excludes'. Did you mean 'exclude'?": {
+        "category": "Error",
         "code": 6114
     },
-    "Resolving using primary search paths...": {
+    "======== Resolving type reference directive '{0}' from '{1}' with compilation root dir '{2}'. ========": {
         "category": "Message",
         "code": 6115
     },
-    "Resolving from node_modules folder...": {
+    "Resolving using primary search paths...": {
         "category": "Message",
         "code": 6116
     },
-    "======== Type reference directive '{0}' was successfully resolved to '{1}', primary: {2}. ========": {
+    "Resolving from node_modules folder...": {
         "category": "Message",
         "code": 6117
     },
-    "======== Type reference directive '{0}' was not resolved. ========": {
+    "======== Type reference directive '{0}' was successfully resolved to '{1}', primary: {2}. ========": {
         "category": "Message",
         "code": 6118
     },
-    "Resolving with primary search path '{0}'": {
+    "======== Type reference directive '{0}' was not resolved. ========": {
         "category": "Message",
         "code": 6119
     },
+    "Resolving with primary search path '{0}'": {
+        "category": "Message",
+        "code": 6120
+    },
+
     "Variable '{0}' implicitly has an '{1}' type.": {
         "category": "Error",
         "code": 7005

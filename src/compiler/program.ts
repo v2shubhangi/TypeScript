@@ -21,8 +21,8 @@ namespace ts {
     export const version = "1.9.0";
 
     export function findConfigFile(searchPath: string, fileExists: (fileName: string) => boolean): string {
-        let fileName = "tsconfig.json";
         while (true) {
+            const fileName = combinePaths(searchPath, "tsconfig.json");
             if (fileExists(fileName)) {
                 return fileName;
             }
@@ -31,7 +31,6 @@ namespace ts {
                 break;
             }
             searchPath = parentPath;
-            fileName = "../" + fileName;
         }
         return undefined;
     }
@@ -821,11 +820,16 @@ namespace ts {
             }
         }
 
+        function getDefaultLibLocation(): string {
+            return getDirectoryPath(normalizePath(sys.getExecutingFilePath()));
+        }
+
         const newLine = getNewLineCharacter(options);
 
         return {
             getSourceFile,
-            getDefaultLibFileName: options => combinePaths(getDirectoryPath(normalizePath(sys.getExecutingFilePath())), getDefaultLibFileName(options)),
+            getDefaultLibLocation,
+            getDefaultLibFileName: options => combinePaths(getDefaultLibLocation(), getDefaultLibFileName(options)),
             writeFile,
             getCurrentDirectory: memoize(() => sys.getCurrentDirectory()),
             useCaseSensitiveFileNames: () => sys.useCaseSensitiveFileNames,
@@ -967,7 +971,17 @@ namespace ts {
             //  - A 'no-default-lib' reference comment is encountered in
             //      processing the root files.
             if (!skipDefaultLib) {
-                processRootFile(host.getDefaultLibFileName(options), /*isDefaultLib*/ true);
+                // If '--lib' is not specified, include default library file according to '--target'
+                // otherwise, using options specified in '--lib' instead of '--target' default library file
+                if (!options.lib) {
+                    processRootFile(host.getDefaultLibFileName(options), /*isDefaultLib*/ true);
+                }
+                else {
+                    const libDirectory = host.getDefaultLibLocation ? host.getDefaultLibLocation() : getDirectoryPath(host.getDefaultLibFileName(options));
+                    forEach(options.lib, libFileName => {
+                        processRootFile(combinePaths(libDirectory, libFileName), /*isDefaultLib*/ true);
+                    });
+                }
             }
         }
 
@@ -1705,7 +1719,7 @@ namespace ts {
 
                 const basePath = getDirectoryPath(fileName);
                 if (!options.noResolve) {
-                    processReferencedFiles(file, basePath);
+                    processReferencedFiles(file, basePath, isDefaultLib);
                     processTypeDirectives(file, libraryRoot);
                 }
 
@@ -1723,10 +1737,10 @@ namespace ts {
             return file;
         }
 
-        function processReferencedFiles(file: SourceFile, basePath: string) {
+        function processReferencedFiles(file: SourceFile, basePath: string, isDefaultLib: boolean) {
             forEach(file.referencedFiles, ref => {
                 const referencedFileName = resolveTripleslashReference(ref.fileName, file.fileName);
-                processSourceFile(referencedFileName, /*isDefaultLib*/ false, /*isReference*/ true, file, ref.pos, ref.end);
+                processSourceFile(referencedFileName, isDefaultLib, /*isReference*/ true, file, ref.pos, ref.end);
             });
         }
 
@@ -1934,6 +1948,10 @@ namespace ts {
                 if (options.out || options.outFile) {
                     programDiagnostics.add(createCompilerDiagnostic(Diagnostics.Option_0_cannot_be_specified_with_option_1, "declarationDir", options.out ? "out" : "outFile"));
                 }
+            }
+
+            if (options.lib && options.noLib) {
+                programDiagnostics.add(createCompilerDiagnostic(Diagnostics.Option_0_cannot_be_specified_with_option_1, "lib", "noLib"));
             }
 
             const languageVersion = options.target || ScriptTarget.ES3;
