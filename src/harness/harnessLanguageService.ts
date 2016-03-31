@@ -442,6 +442,7 @@ namespace Harness.LanguageService {
         getPreProcessedFileInfo(fileName: string, fileContents: string): ts.PreProcessedFileInfo {
             let shimResult: {
                 referencedFiles: ts.IFileReference[];
+                typeReferenceDirectives: ts.IFileReference[];
                 importedFiles: ts.IFileReference[];
                 isLibFile: boolean;
             };
@@ -453,7 +454,8 @@ namespace Harness.LanguageService {
                 referencedFiles: [],
                 importedFiles: [],
                 ambientExternalModules: [],
-                isLibFile: shimResult.isLibFile
+                isLibFile: shimResult.isLibFile,
+                typeReferenceDirectives: []
             };
 
             ts.forEach(shimResult.referencedFiles, refFile => {
@@ -472,6 +474,13 @@ namespace Harness.LanguageService {
                 });
             });
 
+            ts.forEach(shimResult.typeReferenceDirectives, typeRefDirective => {
+                convertResult.importedFiles.push({
+                    fileName: typeRefDirective.path,
+                    pos: typeRefDirective.position,
+                    end: typeRefDirective.position + typeRefDirective.length
+                });
+            });
             return convertResult;
         }
     }

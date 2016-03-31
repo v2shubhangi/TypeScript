@@ -125,6 +125,7 @@ namespace ts {
     }
     export interface PreProcessedFileInfo {
         referencedFiles: FileReference[];
+        typeReferenceDirectives: FileReference[];
         importedFiles: FileReference[];
         ambientExternalModules: string[];
         isLibFile: boolean;
@@ -2149,6 +2150,7 @@ namespace ts {
 
     export function preProcessFile(sourceText: string, readImportFiles = true, detectJavaScriptImports = false): PreProcessedFileInfo {
         const referencedFiles: FileReference[] = [];
+        const typeReferenceDirectives: FileReference[] = [];
         const importedFiles: FileReference[] = [];
         let ambientExternalModules: { ref: FileReference, depth: number }[];
         let isNoDefaultLib = false;
@@ -2177,7 +2179,11 @@ namespace ts {
                     isNoDefaultLib = referencePathMatchResult.isNoDefaultLib;
                     const fileReference = referencePathMatchResult.fileReference;
                     if (fileReference) {
-                        referencedFiles.push(fileReference);
+                        const collection = referencePathMatchResult.isTypeReferenceDirective
+                            ? typeReferenceDirectives
+                            : referencedFiles;
+
+                        collection.push(fileReference);
                     }
                 }
             });
@@ -2478,7 +2484,7 @@ namespace ts {
                     importedFiles.push(decl.ref);
                 }
             }
-            return { referencedFiles, importedFiles, isLibFile: isNoDefaultLib, ambientExternalModules: undefined };
+            return { referencedFiles, typeReferenceDirectives, importedFiles, isLibFile: isNoDefaultLib, ambientExternalModules: undefined };
         }
         else {
             // for global scripts ambient modules still can have augmentations - look for ambient modules with depth > 0
@@ -2496,7 +2502,7 @@ namespace ts {
                     }
                 }
             }
-            return { referencedFiles, importedFiles, isLibFile: isNoDefaultLib, ambientExternalModules: ambientModuleNames };
+            return { referencedFiles, typeReferenceDirectives, importedFiles, isLibFile: isNoDefaultLib, ambientExternalModules: ambientModuleNames };
         }
     }
 
