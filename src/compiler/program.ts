@@ -236,7 +236,7 @@ namespace ts {
         }
     }
 
-    function getEffectiveLibraryPrimarySearchPaths(options: CompilerOptions): string[] {
+    function getEffectiveTypesPrimarySearchPaths(options: CompilerOptions): string[] {
         if (options.typesSearchPaths) {
             return options.typesSearchPaths;
         }
@@ -258,14 +258,13 @@ namespace ts {
             trace(host, Diagnostics.Resolving_type_reference_directive_0_from_1_with_compilation_root_dir_2, typeReferenceDirectiveName, containingFile, compilationRoot);
         }
         const failedLookupLocations: string[] = [];
-        const primarySearchPaths = map(getEffectiveLibraryPrimarySearchPaths(options), path => combinePaths(compilationRoot, path));
         // Check primary library paths
-        for (const primaryPath of primarySearchPaths) {
+        for (const searchPath of getEffectiveTypesPrimarySearchPaths(options)) {
+            const primaryPath = combinePaths(compilationRoot, searchPath);
             if (traceEnabled) {
                 trace(host, Diagnostics.Resolving_with_primary_search_path_0, primaryPath);
             }
-            const searchPath = combinePaths(primaryPath, typeReferenceDirectiveName);
-            const resolvedFile = tryLoadTypeDeclarationFile(searchPath, failedLookupLocations, moduleResolutionState);
+            const resolvedFile = tryLoadTypeDeclarationFile(combinePaths(primaryPath, typeReferenceDirectiveName), failedLookupLocations, moduleResolutionState);
             if (resolvedFile) {
                 if (traceEnabled) {
                     trace(host, Diagnostics.Type_reference_directive_0_was_successfully_resolved_to_1_primary_Colon_2, typeReferenceDirectiveName, resolvedFile, true);
@@ -973,6 +972,7 @@ namespace ts {
                 (oldOptions.jsx !== options.jsx) ||
                 (oldOptions.allowJs !== options.allowJs) ||
                 (oldOptions.rootDir !== options.rootDir) ||
+                (oldOptions.typesSearchPaths !== options.typesSearchPaths) ||
                 (oldOptions.configFilePath !== options.configFilePath)) {
                 oldProgram = undefined;
             }
