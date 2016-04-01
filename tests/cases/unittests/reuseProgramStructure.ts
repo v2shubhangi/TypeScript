@@ -206,7 +206,7 @@ module ts {
     }
 
     function checkResolvedTypeDirectivesCache(program: Program, fileName: string, expectedContent: Map<ResolvedTypeReferenceDirective>): void {
-        checkCache("resolved type directives", program, fileName, expectedContent, f => f.resolvedTypeDirectiveNames, checkResolvedTypeDirective);
+        checkCache("resolved type directives", program, fileName, expectedContent, f => f.resolvedTypeReferenceDirectiveNames, checkResolvedTypeDirective);
     }
 
     describe("Reuse program structure", () => {

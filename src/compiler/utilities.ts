@@ -119,12 +119,12 @@ namespace ts {
         sourceFile.resolvedModules[moduleNameText] = resolvedModule;
     }
 
-    export function setResolvedTypeDirective(sourceFile: SourceFile, typeDirectiveName: string, resolvedTypeDirective: ResolvedTypeReferenceDirective): void {
-        if (!sourceFile.resolvedTypeDirectiveNames) {
-            sourceFile.resolvedTypeDirectiveNames = {};
+    export function setResolvedTypeReferenceDirective(sourceFile: SourceFile, typeReferenceDirectiveName: string, resolvedTypeReferenceDirective: ResolvedTypeReferenceDirective): void {
+        if (!sourceFile.resolvedTypeReferenceDirectiveNames) {
+            sourceFile.resolvedTypeReferenceDirectiveNames = {};
         }
 
-        sourceFile.resolvedTypeDirectiveNames[typeDirectiveName] = resolvedTypeDirective;
+        sourceFile.resolvedTypeReferenceDirectiveNames[typeReferenceDirectiveName] = resolvedTypeReferenceDirective;
     }
 
     /* @internal */
