@@ -793,7 +793,7 @@ namespace ts {
         public amdDependencies: { name: string; path: string }[];
         public moduleName: string;
         public referencedFiles: FileReference[];
-        public typeDirectives: FileReference[];
+        public typeReferenceDirectives: FileReference[];
 
         public syntacticDiagnostics: Diagnostic[];
         public referenceDiagnostics: Diagnostic[];
@@ -2860,7 +2860,7 @@ namespace ts {
                 compilerHost.resolveModuleNames = (moduleNames, containingFile) => host.resolveModuleNames(moduleNames, containingFile);
             }
             if (host.resolveTypeReferenceDirectives) {
-                compilerHost.resolveTypeReferenceDirectives = (typeReferenceDirectiveNames, containingFile) => { 
+                compilerHost.resolveTypeReferenceDirectives = (typeReferenceDirectiveNames, containingFile) => {
                     return host.resolveTypeReferenceDirectives(typeReferenceDirectiveNames, containingFile);
                 };
             }
@@ -4684,6 +4684,26 @@ namespace ts {
             }
         }
 
+        function findReferenceInPosition(refs: FileReference[], pos: number): FileReference {
+            for (const ref of refs) {
+                if (ref.pos <= pos && pos < ref.end) {
+                    return ref;
+                }
+            }
+            return undefined;
+        }
+
+        function getDefinitionInfoForFileReference(name: string, targetFileName: string): DefinitionInfo {
+            return {
+                fileName: targetFileName,
+                textSpan: createTextSpanFromBounds(0, 0),
+                kind: ScriptElementKind.scriptElement,
+                name: name,
+                containerName: undefined,
+                containerKind: undefined
+            };
+        }
+
         /// Goto definition
         function getDefinitionAtPosition(fileName: string, position: number): DefinitionInfo[] {
             synchronizeHostData();
@@ -4703,18 +4723,20 @@ namespace ts {
             }
 
             /// Triple slash reference comments
-            const comment = forEach(sourceFile.referencedFiles, r => (r.pos <= position && position < r.end) ? r : undefined);
+            const comment = findReferenceInPosition(sourceFile.referencedFiles, position);
             if (comment) {
                 const referenceFile = tryResolveScriptReference(program, sourceFile, comment);
                 if (referenceFile) {
-                    return [{
-                        fileName: referenceFile.fileName,
-                        textSpan: createTextSpanFromBounds(0, 0),
-                        kind: ScriptElementKind.scriptElement,
-                        name: comment.fileName,
-                        containerName: undefined,
-                        containerKind: undefined
-                    }];
+                    return [getDefinitionInfoForFileReference(comment.fileName, referenceFile.fileName)];
+                }
+                return undefined;
+            }
+            // Type reference directives
+            const typeReferenceDirective = findReferenceInPosition(sourceFile.typeReferenceDirectives, position);
+            if (typeReferenceDirective) {
+                const referenceFile = lookUp(program.resolvedTypeDirectives, typeReferenceDirective.fileName);
+                if (referenceFile && referenceFile.resolvedFileName) {
+                    return [getDefinitionInfoForFileReference(typeReferenceDirective.fileName, referenceFile.resolvedFileName)];
                 }
                 return undefined;
             }

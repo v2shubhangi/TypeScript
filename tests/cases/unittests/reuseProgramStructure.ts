@@ -166,7 +166,7 @@ module ts {
         assert.isTrue(expected.isExternalLibraryImport === actual.isExternalLibraryImport, `'isExternalLibraryImport': expected '${expected.isExternalLibraryImport}' to be equal to '${actual.isExternalLibraryImport}'`);
     }
 
-    function checkResolvedTypeDirective(expected: ResolvedTypeDirective, actual: ResolvedTypeDirective): void {
+    function checkResolvedTypeDirective(expected: ResolvedTypeReferenceDirective, actual: ResolvedTypeReferenceDirective): void {
         assert.isTrue(actual !== undefined);
         assert.isTrue(expected.resolvedFileName === actual.resolvedFileName, `'resolvedFileName': expected '${expected.resolvedFileName}' to be equal to '${actual.resolvedFileName}'`);
         assert.isTrue(expected.primary === actual.primary, `'primary': expected '${expected.primary}' to be equal to '${actual.primary}'`);
@@ -205,7 +205,7 @@ module ts {
         checkCache("resolved modules", program, fileName, expectedContent, f => f.resolvedModules, checkResolvedModule);
     }
 
-    function checkResolvedTypeDirectivesCache(program: Program, fileName: string, expectedContent: Map<ResolvedTypeDirective>): void {
+    function checkResolvedTypeDirectivesCache(program: Program, fileName: string, expectedContent: Map<ResolvedTypeReferenceDirective>): void {
         checkCache("resolved type directives", program, fileName, expectedContent, f => f.resolvedTypeDirectiveNames, checkResolvedTypeDirective);
     }
 

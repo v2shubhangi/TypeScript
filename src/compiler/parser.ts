@@ -5569,7 +5569,7 @@ namespace ts {
             }
 
             sourceFile.referencedFiles = referencedFiles;
-            sourceFile.typeDirectives = typeDirectives;
+            sourceFile.typeReferenceDirectives = typeDirectives;
             sourceFile.amdDependencies = amdDependencies;
             sourceFile.moduleName = amdModuleName;
         }

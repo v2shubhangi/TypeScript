@@ -116,7 +116,7 @@ namespace ts.server {
         }
 
         private resolveNamesWithLocalCache<T extends Timestamped & { failedLookupLocations: string[] }, R>(
-            names: string[], 
+            names: string[],
             containingFile: string,
             cache: ts.FileMap<Map<T>>,
             loader: (name: string, containingFile: string, options: CompilerOptions, host: ModuleResolutionHost) => T,

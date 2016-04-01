@@ -239,8 +239,8 @@ namespace ts {
         if (options.librarySearchPaths) {
             return options.librarySearchPaths;
         }
-        return options.configFilePath 
-            ? [getDirectoryPath(options.configFilePath)].concat(defaultLibrarySearchPaths) 
+        return options.configFilePath
+            ? [getDirectoryPath(options.configFilePath)].concat(defaultLibrarySearchPaths)
             : defaultLibrarySearchPaths;
     }
 
@@ -1107,7 +1107,7 @@ namespace ts {
                         return false;
                     }
 
-                    if (!arrayIsEqualTo(oldSourceFile.typeDirectives, newSourceFile.typeDirectives, fileReferenceIsEqualTo)) {
+                    if (!arrayIsEqualTo(oldSourceFile.typeReferenceDirectives, newSourceFile.typeReferenceDirectives, fileReferenceIsEqualTo)) {
                         // 'types' references has changed
                         return false;
                     }
@@ -1123,7 +1123,7 @@ namespace ts {
                         }
                     }
                     if (resolveTypeDirectiveNamesWorker) {
-                        const typesReferences = map(newSourceFile.typeDirectives, x => x.fileName);
+                        const typesReferences = map(newSourceFile.typeReferenceDirectives, x => x.fileName);
                         const resolutions = resolveTypeDirectiveNamesWorker(typesReferences, newSourceFilePath);
                         // ensure that types resolutions are still correct
                         const resolutionsChanged = hasChangesInResolutions(typesReferences, resolutions, oldSourceFile.resolvedTypeDirectiveNames, typeDirectiveIsEqualTo);
@@ -1750,11 +1750,11 @@ namespace ts {
         }
 
         function processTypeDirectives(file: SourceFile, compilationRoot: string) {
-            const typeDirectives = map(file.typeDirectives, l => l.fileName);
+            const typeDirectives = map(file.typeReferenceDirectives, l => l.fileName);
             const resolutions = resolveTypeDirectiveNamesWorker(typeDirectives, file.fileName);
 
             for (let i = 0; i < typeDirectives.length; i++) {
-                const ref = file.typeDirectives[i];
+                const ref = file.typeReferenceDirectives[i];
                 const resolvedTypeDirective = resolutions[i];
                 // store resolved type directive on the file
                 setResolvedTypeDirective(file, ref.fileName, resolvedTypeDirective);

@@ -1536,7 +1536,7 @@ namespace ts {
         amdDependencies: AmdDependency[];
         moduleName: string;
         referencedFiles: FileReference[];
-        typeDirectives: FileReference[];
+        typeReferenceDirectives: FileReference[];
         languageVariant: LanguageVariant;
         isDeclarationFile: boolean;
 
