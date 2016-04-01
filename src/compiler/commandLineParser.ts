@@ -312,11 +312,11 @@ namespace ts {
             }
         },
         {
-            name: "librarySearchPaths",
+            name: "typesSearchPaths",
             type: "list",
             isTSConfigOnly: true,
             element: {
-                name: "librarySearchPaths",
+                name: "typesSearchPaths",
                 type: "string",
                 isFilePath: true
             }

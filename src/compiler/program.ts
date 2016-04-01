@@ -236,8 +236,8 @@ namespace ts {
     }
 
     function getEffectiveLibraryPrimarySearchPaths(options: CompilerOptions): string[] {
-        if (options.librarySearchPaths) {
-            return options.librarySearchPaths;
+        if (options.typesSearchPaths) {
+            return options.typesSearchPaths;
         }
         return options.configFilePath
             ? [getDirectoryPath(options.configFilePath)].concat(defaultLibrarySearchPaths)
@@ -925,7 +925,7 @@ namespace ts {
 
         host = host || createCompilerHost(options);
 
-        const libraryRoot = computeCompilationRoot(rootNames, currentDirectory, options, getCanonicalFileName);
+        const compilationRoot = computeCompilationRoot(rootNames, currentDirectory, options, getCanonicalFileName);
 
         // Map storing if there is emit blocking diagnostics for given input
         const hasEmitBlockingDiagnostics = createFileMap<boolean>(getCanonicalFileName);
@@ -939,13 +939,13 @@ namespace ts {
             resolveModuleNamesWorker = (moduleNames, containingFile) => loadWithLocalCache(moduleNames, containingFile, loader);
         }
 
-        let resolveTypeDirectiveNamesWorker: (typeDirectiveNames: string[], containingFile: string) => ResolvedTypeReferenceDirective[];
+        let resolveTypeReferenceDirectiveNamesWorker: (typeDirectiveNames: string[], containingFile: string) => ResolvedTypeReferenceDirective[];
         if (host.resolveTypeReferenceDirectives) {
-            resolveTypeDirectiveNamesWorker = (typeDirectiveNames, containingFile) => host.resolveTypeReferenceDirectives(typeDirectiveNames, containingFile);
+            resolveTypeReferenceDirectiveNamesWorker = (typeDirectiveNames, containingFile) => host.resolveTypeReferenceDirectives(typeDirectiveNames, containingFile);
         }
         else {
-            const loader = (typesRef: string, containingFile: string) => resolveTypeReferenceDirective(typesRef, containingFile, libraryRoot, options, host).resolvedTypeDirective;
-            resolveTypeDirectiveNamesWorker = (typeDirectiveNames, containingFile) => loadWithLocalCache(typeDirectiveNames, containingFile, loader);
+            const loader = (typesRef: string, containingFile: string) => resolveTypeReferenceDirective(typesRef, containingFile, compilationRoot, options, host).resolvedTypeDirective;
+            resolveTypeReferenceDirectiveNamesWorker = (typeReferenceDirectiveNames, containingFile) => loadWithLocalCache(typeReferenceDirectiveNames, containingFile, loader);
         }
 
         const filesByName = createFileMap<SourceFile>();
@@ -1122,9 +1122,9 @@ namespace ts {
                             return false;
                         }
                     }
-                    if (resolveTypeDirectiveNamesWorker) {
+                    if (resolveTypeReferenceDirectiveNamesWorker) {
                         const typesReferences = map(newSourceFile.typeReferenceDirectives, x => x.fileName);
-                        const resolutions = resolveTypeDirectiveNamesWorker(typesReferences, newSourceFilePath);
+                        const resolutions = resolveTypeReferenceDirectiveNamesWorker(typesReferences, newSourceFilePath);
                         // ensure that types resolutions are still correct
                         const resolutionsChanged = hasChangesInResolutions(typesReferences, resolutions, oldSourceFile.resolvedTypeDirectiveNames, typeDirectiveIsEqualTo);
                         if (resolutionsChanged) {
@@ -1725,7 +1725,7 @@ namespace ts {
                 const basePath = getDirectoryPath(fileName);
                 if (!options.noResolve) {
                     processReferencedFiles(file, basePath, isDefaultLib);
-                    processTypeDirectives(file, libraryRoot);
+                    processTypeDirectives(file, compilationRoot);
                 }
 
                 // always process imported modules to record module name resolutions
@@ -1751,7 +1751,7 @@ namespace ts {
 
         function processTypeDirectives(file: SourceFile, compilationRoot: string) {
             const typeDirectives = map(file.typeReferenceDirectives, l => l.fileName);
-            const resolutions = resolveTypeDirectiveNamesWorker(typeDirectives, file.fileName);
+            const resolutions = resolveTypeReferenceDirectiveNamesWorker(typeDirectives, file.fileName);
 
             for (let i = 0; i < typeDirectives.length; i++) {
                 const ref = file.typeReferenceDirectives[i];
