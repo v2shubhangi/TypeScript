@@ -216,6 +216,7 @@ namespace Harness.LanguageService {
         private nativeHost: NativeLanguageServiceHost;
 
         public getModuleResolutionsForFile: (fileName: string) => string;
+        public getTypeReferenceDirectiveResolutionsForFile: (fileName: string) => string;
 
         constructor(preprocessToResolve: boolean, cancellationToken?: ts.HostCancellationToken, options?: ts.CompilerOptions) {
             super(cancellationToken, options);
@@ -241,6 +242,22 @@ namespace Harness.LanguageService {
                         }
                     }
                     return JSON.stringify(imports);
+                };
+                this.getTypeReferenceDirectiveResolutionsForFile = (fileName) => {
+                    const scriptInfo = this.getScriptInfo(fileName);
+                    const preprocessInfo = ts.preProcessFile(scriptInfo.content, /*readImportFiles*/ false);
+                    const resolutions: ts.Map<ts.ResolvedTypeReferenceDirective> = {};
+                    const rootFiles = this.getFilenames();
+                    const currentDirectory = this.getCurrentDirectory();
+                    const settings = this.nativeHost.getCompilationSettings();
+                    const compilationRoot = ts.computeCompilationRoot(rootFiles, currentDirectory, settings, ts.createGetCanonicalFileName(false));
+                    for (const typeReferenceDirective of preprocessInfo.typeReferenceDirectives) {
+                        const resolutionInfo = ts.resolveTypeReferenceDirective(typeReferenceDirective.fileName, fileName, compilationRoot, settings, moduleResolutionHost);
+                        if (resolutionInfo.resolvedTypeReferenceDirective.resolvedFileName) {
+                            resolutions[typeReferenceDirective.fileName] = resolutionInfo.resolvedTypeReferenceDirective;
+                        }
+                    }
+                    return JSON.stringify(resolutions);
                 };
             }
         }
