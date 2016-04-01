@@ -67,7 +67,7 @@ namespace ts {
         useCaseSensitiveFileNames?(): boolean;
 
         getModuleResolutionsForFile?(fileName: string): string;
-        getTypeDirectiveResolutionsForFile?(fileName: string): string;
+        getTypeReferenceDirectiveResolutionsForFile?(fileName: string): string;
         directoryExists(directoryName: string): boolean;
     }
 
@@ -300,9 +300,9 @@ namespace ts {
             if ("directoryExists" in this.shimHost) {
                 this.directoryExists = directoryName => this.shimHost.directoryExists(directoryName);
             }
-            if ("getTypeDirectiveResolutionsForFile" in this.shimHost) {
+            if ("getTypeReferenceDirectiveResolutionsForFile" in this.shimHost) {
                 this.resolveTypeReferenceDirectives = (typeDirectiveNames: string[], containingFile: string) => {
-                    const typeDirectivesForFile = <Map<ResolvedTypeReferenceDirective>>JSON.parse(this.shimHost.getTypeDirectiveResolutionsForFile(containingFile));
+                    const typeDirectivesForFile = <Map<ResolvedTypeReferenceDirective>>JSON.parse(this.shimHost.getTypeReferenceDirectiveResolutionsForFile(containingFile));
                     return map(typeDirectiveNames, name => lookUp(typeDirectivesForFile, name));
                 };
             }
@@ -922,6 +922,18 @@ namespace ts {
                 const result = resolveModuleName(moduleName, normalizeSlashes(fileName), compilerOptions, this.host);
                 return {
                     resolvedFileName: result.resolvedModule ? result.resolvedModule.resolvedFileName : undefined,
+                    failedLookupLocations: result.failedLookupLocations
+                };
+            });
+        }
+
+        public resolveTypeReferenceDirective(fileName: string, typeReferenceDirective: string, compilationRoot: string, compilerOptionsJson: string): string {
+            return this.forwardJSONCall(`resolveTypeReferenceDirective(${fileName})`, () => {
+                const compilerOptions = <CompilerOptions>JSON.parse(compilerOptionsJson);
+                const result = resolveTypeReferenceDirective(typeReferenceDirective, normalizeSlashes(fileName), compilationRoot, compilerOptions, this.host);
+                return {
+                    resolvedFileName: result.resolvedTypeDirective.resolvedFileName,
+                    primary: result.resolvedTypeDirective.primary,
                     failedLookupLocations: result.failedLookupLocations
                 };
             });

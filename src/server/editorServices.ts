@@ -176,7 +176,7 @@ namespace ts.server {
                 this.compilationRoot = computeCompilationRoot(this.getScriptFileNames(), this.getCurrentDirectory(), this.getCompilationSettings(), this.getCanonicalFileName);
             }
             const loader = (name: string, containingFile: string, options: CompilerOptions, host: ModuleResolutionHost) => {
-                return resolveTypeDirective(name, containingFile, this.compilationRoot, options, this.moduleResolutionHost);
+                return resolveTypeReferenceDirective(name, containingFile, this.compilationRoot, options, this.moduleResolutionHost);
             };
             return this.resolveNamesWithLocalCache(typeDirectiveNames, containingFile, this.resolvedTypeReferenceDirectives, loader, m => m.resolvedTypeDirective);
         }

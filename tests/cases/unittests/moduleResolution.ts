@@ -958,7 +958,7 @@ import b = require("./moduleB.ts");
     describe("Type reference directive resolution: ", () => {
         function test(compilationRoot: string, typeDirective: string, primary: boolean, initialFile: File, targetFile: File, ...otherFiles: File[]) {
             const host = createModuleResolutionHost(false, ...[initialFile, targetFile].concat(...otherFiles));
-            const result = resolveTypeDirective(typeDirective, initialFile.name, compilationRoot, {}, host);
+            const result = resolveTypeReferenceDirective(typeDirective, initialFile.name, compilationRoot, {}, host);
             assert(result.resolvedTypeDirective.resolvedFileName !== undefined, "expected type directive to be resolved");
             assert.equal(result.resolvedTypeDirective.resolvedFileName, targetFile.name, "unexpected result of type reference resolution");
             assert.equal(result.resolvedTypeDirective.primary, primary, "unexpected 'primary' value");

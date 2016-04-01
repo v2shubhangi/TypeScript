@@ -244,7 +244,7 @@ namespace ts {
             : defaultLibrarySearchPaths;
     }
 
-    export function resolveTypeDirective(typeDirectiveName: string, containingFile: string, compilationRoot: string, options: CompilerOptions, host: ModuleResolutionHost): ResolvedTypeDirectiveWithFailedLookupLocations {
+    export function resolveTypeReferenceDirective(typeReferenceDirectiveName: string, containingFile: string, compilationRoot: string, options: CompilerOptions, host: ModuleResolutionHost): ResolvedTypeDirectiveWithFailedLookupLocations {
         const traceEnabled = isTraceEnabled(options, host);
         const moduleResolutionState: ModuleResolutionState = {
             compilerOptions: options,
@@ -254,7 +254,7 @@ namespace ts {
         };
 
         if (traceEnabled) {
-            trace(host, Diagnostics.Resolving_type_reference_directive_0_from_1_with_compilation_root_dir_2, typeDirectiveName, containingFile, compilationRoot);
+            trace(host, Diagnostics.Resolving_type_reference_directive_0_from_1_with_compilation_root_dir_2, typeReferenceDirectiveName, containingFile, compilationRoot);
         }
         const failedLookupLocations: string[] = [];
         const primarySearchPaths = map(getEffectiveLibraryPrimarySearchPaths(options), path => combinePaths(compilationRoot, path));
@@ -263,11 +263,11 @@ namespace ts {
             if (traceEnabled) {
                 trace(host, Diagnostics.Resolving_with_primary_search_path_0, primaryPath);
             }
-            const searchPath = combinePaths(primaryPath, typeDirectiveName);
+            const searchPath = combinePaths(primaryPath, typeReferenceDirectiveName);
             const resolvedFile = tryLoadTypeDeclarationFile(searchPath, failedLookupLocations, moduleResolutionState);
             if (resolvedFile) {
                 if (traceEnabled) {
-                    trace(host, Diagnostics.Type_reference_directive_0_was_successfully_resolved_to_1_primary_Colon_2, typeDirectiveName, resolvedFile, true);
+                    trace(host, Diagnostics.Type_reference_directive_0_was_successfully_resolved_to_1_primary_Colon_2, typeReferenceDirectiveName, resolvedFile, true);
                 }
                 return { resolvedTypeDirective: {  primary: true, resolvedFileName: resolvedFile }, failedLookupLocations };
             }
@@ -277,13 +277,13 @@ namespace ts {
             trace(host, Diagnostics.Resolving_from_node_modules_folder);
         }
         // check secondary locations
-        const resolvedFile = loadModuleFromNodeModules(typeDirectiveName, getDirectoryPath(containingFile), failedLookupLocations, moduleResolutionState);
+        const resolvedFile = loadModuleFromNodeModules(typeReferenceDirectiveName, getDirectoryPath(containingFile), failedLookupLocations, moduleResolutionState);
         if (traceEnabled) {
             if (resolvedFile) {
-                trace(host, Diagnostics.Type_reference_directive_0_was_successfully_resolved_to_1_primary_Colon_2, typeDirectiveName, resolvedFile, false);
+                trace(host, Diagnostics.Type_reference_directive_0_was_successfully_resolved_to_1_primary_Colon_2, typeReferenceDirectiveName, resolvedFile, false);
             }
             else {
-                trace(host, Diagnostics.Type_reference_directive_0_was_not_resolved, typeDirectiveName);
+                trace(host, Diagnostics.Type_reference_directive_0_was_not_resolved, typeReferenceDirectiveName);
             }
         }
         return {
@@ -944,7 +944,7 @@ namespace ts {
             resolveTypeDirectiveNamesWorker = (typeDirectiveNames, containingFile) => host.resolveTypeReferenceDirectives(typeDirectiveNames, containingFile);
         }
         else {
-            const loader = (typesRef: string, containingFile: string) => resolveTypeDirective(typesRef, containingFile, libraryRoot, options, host).resolvedTypeDirective;
+            const loader = (typesRef: string, containingFile: string) => resolveTypeReferenceDirective(typesRef, containingFile, libraryRoot, options, host).resolvedTypeDirective;
             resolveTypeDirectiveNamesWorker = (typeDirectiveNames, containingFile) => loadWithLocalCache(typeDirectiveNames, containingFile, loader);
         }
 
