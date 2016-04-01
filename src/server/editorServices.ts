@@ -88,7 +88,7 @@ namespace ts.server {
     interface TimestampedResolvedModule extends ResolvedModuleWithFailedLookupLocations, Timestamped {
     }
 
-    interface TimestampedResolvedTypeDirective extends ResolvedTypeDirectiveWithFailedLookupLocations, Timestamped {
+    interface TimestampedResolvedTypeReferenceDirective extends ResolvedTypeReferenceDirectiveWithFailedLookupLocations, Timestamped {
     }
 
     export class LSHost implements ts.LanguageServiceHost {
@@ -99,14 +99,14 @@ namespace ts.server {
         compilationRoot: string;
 
         private resolvedModuleNames: ts.FileMap<Map<TimestampedResolvedModule>>;
-        private resolvedTypeReferenceDirectives: ts.FileMap<Map<TimestampedResolvedTypeDirective>>;
+        private resolvedTypeReferenceDirectives: ts.FileMap<Map<TimestampedResolvedTypeReferenceDirective>>;
         private moduleResolutionHost: ts.ModuleResolutionHost;
         private getCanonicalFileName: (fileName: string) => string;
 
         constructor(public host: ServerHost, public project: Project) {
             this.getCanonicalFileName = createGetCanonicalFileName(host.useCaseSensitiveFileNames);
             this.resolvedModuleNames = createFileMap<Map<TimestampedResolvedModule>>();
-            this.resolvedTypeReferenceDirectives = createFileMap<Map<TimestampedResolvedTypeDirective>>();
+            this.resolvedTypeReferenceDirectives = createFileMap<Map<TimestampedResolvedTypeReferenceDirective>>();
             this.filenameToScript = createFileMap<ScriptInfo>();
             this.moduleResolutionHost = {
                 fileExists: fileName => this.fileExists(fileName),
@@ -178,7 +178,7 @@ namespace ts.server {
             const loader = (name: string, containingFile: string, options: CompilerOptions, host: ModuleResolutionHost) => {
                 return resolveTypeReferenceDirective(name, containingFile, this.compilationRoot, options, this.moduleResolutionHost);
             };
-            return this.resolveNamesWithLocalCache(typeDirectiveNames, containingFile, this.resolvedTypeReferenceDirectives, loader, m => m.resolvedTypeDirective);
+            return this.resolveNamesWithLocalCache(typeDirectiveNames, containingFile, this.resolvedTypeReferenceDirectives, loader, m => m.resolvedTypeReferenceDirective);
         }
 
         resolveModuleNames(moduleNames: string[], containingFile: string): ResolvedModule[] {

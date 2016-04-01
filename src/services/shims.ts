@@ -932,8 +932,8 @@ namespace ts {
                 const compilerOptions = <CompilerOptions>JSON.parse(compilerOptionsJson);
                 const result = resolveTypeReferenceDirective(typeReferenceDirective, normalizeSlashes(fileName), compilationRoot, compilerOptions, this.host);
                 return {
-                    resolvedFileName: result.resolvedTypeDirective.resolvedFileName,
-                    primary: result.resolvedTypeDirective.primary,
+                    resolvedFileName: result.resolvedTypeReferenceDirective.resolvedFileName,
+                    primary: result.resolvedTypeReferenceDirective.primary,
                     failedLookupLocations: result.failedLookupLocations
                 };
             });

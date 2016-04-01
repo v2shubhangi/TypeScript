@@ -2762,8 +2762,8 @@ namespace ts {
         resolvedFileName?: string;
     }
 
-    export interface ResolvedTypeDirectiveWithFailedLookupLocations {
-        resolvedTypeDirective: ResolvedTypeReferenceDirective;
+    export interface ResolvedTypeReferenceDirectiveWithFailedLookupLocations {
+        resolvedTypeReferenceDirective: ResolvedTypeReferenceDirective;
         failedLookupLocations: string[];
     }
 

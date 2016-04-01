@@ -5505,7 +5505,7 @@ namespace ts {
         function processReferenceComments(sourceFile: SourceFile): void {
             const triviaScanner = createScanner(sourceFile.languageVersion, /*skipTrivia*/false, LanguageVariant.Standard, sourceText);
             const referencedFiles: FileReference[] = [];
-            const typeDirectives: FileReference[] = [];
+            const typeReferenceDirectives: FileReference[] = [];
             const amdDependencies: { path: string; name: string }[] = [];
             let amdModuleName: string;
 
@@ -5533,7 +5533,7 @@ namespace ts {
                     const diagnosticMessage = referencePathMatchResult.diagnosticMessage;
                     if (fileReference) {
                         if (referencePathMatchResult.isTypeReferenceDirective) {
-                            typeDirectives.push(fileReference);
+                            typeReferenceDirectives.push(fileReference);
                         }
                         else {
                             referencedFiles.push(fileReference);
@@ -5569,7 +5569,7 @@ namespace ts {
             }
 
             sourceFile.referencedFiles = referencedFiles;
-            sourceFile.typeReferenceDirectives = typeDirectives;
+            sourceFile.typeReferenceDirectives = typeReferenceDirectives;
             sourceFile.amdDependencies = amdDependencies;
             sourceFile.moduleName = amdModuleName;
         }

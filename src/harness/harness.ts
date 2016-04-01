@@ -66,6 +66,7 @@ namespace Utils {
     }
 
     export function byteLength(s: string, encoding?: string): number {
+        // stub implementation if Buffer is not available (in-browser case)
         return Buffer ? Buffer.byteLength(s, encoding) : s.length;
     }
 
